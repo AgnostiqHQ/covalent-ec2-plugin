@@ -9,7 +9,7 @@
 
 </div>
 
-## Covalent Executor Plugins
+## Covalent EC2 Executor Plugin
 
 Covalent is a Pythonic workflow tool used to execute tasks on advanced computing hardware. The way in which workflows and tasks interface with the hardware is through executor plugins, such as the local executor packaged with core Covalent. While the Covalent team has a rigorous roadmap to provide interfaces to many devices, you may find that you want more flexibility or customization for a particular environment. Here, we recommend creating a custom executor plugin. This repository serves as a template for creating such plugins.  For more information about how to get started with Covalent, check out the project [homepage](https://github.com/AgnostiqHQ/covalent) and the official [documentation](https://covalent.readthedocs.io/en/latest/).
 
