@@ -35,21 +35,21 @@ with open("requirements.txt") as f:
 
 # Modify this to be the name of your plugin file. Here, "covalent_executor_template"
 # is the name of the directory the plugin is in. "custom" is name of the module.
-plugins_list = ["custom = covalent_executor_template.custom"]
+plugins_list = ["ec2 = covalent_ec2_executor.ec2"]
 
 setup_info = {
     # Your plugin should use the naming convention 'covalent-abcdef-plugin'
-    "name": "covalent-executor-template",
+    "name": "covalent-ec2-plugin",
     "packages": find_packages("."),
     "version": version,
     # Modify any contact information as you see fit
     "maintainer": "Agnostiq",
-    "url": "https://github.com/AgnostiqHQ/covalent-executor-template",
-    "download_url": f"https://github.com/AgnostiqHQ/covalent-executor-template/archive/v{version}.tar.gz",
+    "url": "https://github.com/AgnostiqHQ/covalent-ec2-plugin",
+    "download_url": f"https://github.com/AgnostiqHQ/covalent-ec2-plugin/archive/v{version}.tar.gz",
     "license": "GNU Affero GPL v3.0",
     "author": "Agnostiq",
     "author_email": "support@agnostiq.ai",
-    "description": "Covalent Custom Executor Plugin",
+    "description": "Covalent EC2 Plugin",
     "long_description": open("README.md").read(),
     "long_description_content_type": "text/markdown",
     "include_package_data": True,
