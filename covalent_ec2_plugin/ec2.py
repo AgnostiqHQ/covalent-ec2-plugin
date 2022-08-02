@@ -20,36 +20,33 @@
 
 """EC2 executor plugin for the Covalent dispatcher."""
 
+import subprocess
 import os
 from typing import Any, Callable, Dict, List, Tuple
+import boto3, botocore
+from multiprocessing import Queue as MPQ
 
 # Covalent imports
 from covalent._results_manager.result import Result
 from covalent._shared_files import logger
-from covalent._shared_files.config import get_config, update_config
-from covalent._shared_files.util_classes import DispatchInfo
-from covalent._workflow.transport import TransportableObject
+
 
 # The EC2Executor should inherit from the SSH Executor
-from covalent.executor.executor_plugins.ssh import SSHExecutor
+from covalent.executor.ssh import SSHExecutor
 
 app_log = logger.app_log
 log_stack_info = logger.log_stack_info
-log_debug_info = logger.log_debug_info
 
 # The plugin class name must be given by the EXECUTOR_PLUGIN_NAME attribute. In case this
 # module has more than one class defined, this lets Covalent know which is the executor class.
-EXECUTOR_PLUGIN_NAME = "EC2Executor"
+executor_plugin_name = "EC2Executor"
 
 _EXECUTOR_PLUGIN_DEFAULTS = {
-    "region": "ca-central-1",
-    "zone": "ca-central-1b",
-    "profile": "default",
+    "username": "",
+    "hostname": "",
+    "ssh_key_file": os.path.join(os.environ["HOME"], ".ssh/id_rsa") or "",
+    "profile": os.environ.get("AWS_PROFILE") or "",
     "credentials_file": os.path.join(os.environ["HOME"], ".aws/credentials"),
-    "instance_type": "t2.micro",
-    "ebs_volume_size": "8 GiB",
-    "hostname": "ami-00f881f027a6d74a0",
-    "retries": 5,
     "cache_dir": os.path.join(
         os.environ.get("XDG_CACHE_HOME") or os.path.join(os.environ["HOME"], ".cache"), "covalent"
     ),
@@ -63,77 +60,118 @@ class EC2Executor(SSHExecutor):
     """
     Executor class that invokes the input function on an EC2 instance
     Args:
-        username: IAM account name used for authentication to AWS
-        hostname: The AMI name of the instance
-        region: The region where the EC2 instance is deployed
-        zone:   The availability zone where the instance is deployed
+        username: username used by an SSH client to authenticate to the instance.
+        hostname: The public DNS name of the instance
         profile: The name of the AWS profile
         credentials_file: Filename of the credentials file used for authentication to AWS.
-        instance_type: The type of instance
+        ssh_key_file: Filename of the private key used for authentication with the remote server if it exists.
         run_local_on_ec2_fail: If True, and the execution fails to run on the instance,
             then the execution is run on the local machine.
+        _INFRA_DIR: The path to the directory containing the terraform configuration files
+        _BUCKET_NAME: The name of the AWS S3 bucket used in manipulating result objects.
+        _BUCKET_REGION: The location of the S3 bucket
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
+    _INFRA_DIR = "../infra"
+    _BUCKET_NAME = "covalent-ec2-executor-bucket"
+    _BUCKET_REGION = "ca-central-1"
 
     def __init__(
-        self,
-        username: str,
-        hostname: str,
-        region: str,
-        zone: str,
-        profile: str,
-        instance_type: str,
-        credentials_file: str = os.path.join(os.environ["HOME"], ".aws/credentials"),
-        run_local_on_ec2_fail: bool = False,
-        **kwargs
+            self,
+            username: str,
+            hostname: str,
+            profile: str,
+            credentials_file: str,
+            ssh_key_file: str = os.path.join(os.environ["HOME"], ".ssh/id_rsa"),
+            **kwargs
     ) -> None:
         self.username = username
         self.hostname = hostname
-        self.region = region
-        self.zone = zone
         self.profile = profile
-        self.instance_type = instance_type
         self.credentials_file = credentials_file
-        self.run_local_on_ec2_fail = run_local_on_ec2_fail
+        self.ssh_key_file = ssh_key_file
         self.kwargs = kwargs
-
-        # Call the BaseExecutor initialization:
-        # There are a number of optional arguments to BaseExecutor
-        # that could be specfied as keyword inputs to CustomExecutor.
-        base_kwargs = {}
-        for key, _ in self.kwargs.items():
-            if key in [
-                "conda_env",
-                "cache_dir",
-                "current_env_on_conda_fail",
-            ]:
-                base_kwargs[key] = self.kwargs[key]
-
-        super().__init__(username, hostname, **base_kwargs)
+        super().__init__(username, hostname, **kwargs)
 
     def setup(self) -> Any:
         """
         Calls Terraform code to setup the infrastructure for EC2
+        Terraform processes the config parameters defined in "aws user_data" for deploying resources such
+        as the bucket for storing pickled result objects and the vpc that hosts the instance.
+        Args:
+            region: The region where the bucket is deployed
+        """
+        try:
+            session = boto3.Session(profile_name=self.profile)
+            client = session.client('s3')
+            if client.head_bucket(Bucket=self._BUCKET_NAME):
+                app_log.log(level=1, msg=f"{self._BUCKET_NAME} already exists.")
 
-        """
-        pass
+            else:
+                client.create_bucket(
+                    ACL='public-read-write',
+                    Bucket=self._BUCKET_NAME,
+                    CreateBucketConfiguration={
+                        'LocationConstraint': self._BUCKET_REGION
+                    },
 
-    def teardown(self) -> Any:
+                    ObjectOwnership='BucketOwnerPreferred',
+                )
+        except botocore.exceptions.ClientError as e:
+            app_log.error(e)
+
+        # subprocess.run(["terraform", "init"], cwd=self._INFRA_DIR)
+        # subprocess.run(["terraform", "plan", "-auto-approve"], cwd=self._INFRA_DIR)
+        # subprocess.run(["terraform", "apply"], cwd=self._INFRA_DIR)
+
+    def teardown(self, info_dict: dict) -> Any:
         """
-        Stops all running instances and destroys resources after execution
+        Terminates the running instance after workflow execution and destroys all supporting resources
         """
-        pass
+
+        subprocess.run(["terraform", "destroy"], cwd=self._INFRA_DIR)
+        subprocess.run(["aws", "s3", "rb", f"s3://{self._BUCKET_NAME}", "--force", f"--profile={self.profile}"])
+        return info_dict
 
     def run(self, function: Callable, args: List, kwargs: Dict):
-        app_log.debug(f"Running function {function} on the instance {self.hostname}")
-        return function(*args, **kwargs)
+
+        """
+        Runs the executable function and manipulates the result object
+        - pickle function and upload to S3 bucket
+        - terraform init and run
+        - Download pickle file using aws s3 cp, unpickle, and run the code
+        - Generate and pickle res obj and uploads back to s3
+        """
+
+        # Attempt to connect via SSH
+        try:
+            if not self._client_connect():
+                # Attempt to connect via public IP address ( to be implemented)
+                pass
+        except ConnectionError as e:
+            app_log.error(e)
+
+    def execute(
+            self,
+            function: Any,
+            args: list,
+            kwargs: dict,
+            dispatch_id: str,
+            results_dir: str,
+            node_id: int = -1,
+            info_queue: MPQ = None,
+    ) -> Any:
+        self.setup()
+        self.run(function=function, args=args, kwargs=kwargs)
+        self.teardown()
+        return None
 
     def get_status(self, info_dict: dict) -> Result:
         """
         Get the current status of the task.
 
         Args:
-            info_dict: a dictionary containing any neccessary parameters needed to query the
+            info_dict: a dictionary containing any necessary parameters needed to query the
                 status. For this class (LocalExecutor), the only info is given by the
                 "STATUS" key in info_dict.
 
@@ -156,4 +194,3 @@ class EC2Executor(SSHExecutor):
         """
 
         return (None, "", "", InterruptedError)
-

@@ -35,7 +35,7 @@ with open("requirements.txt") as f:
 
 # Modify this to be the name of your plugin file. Here, "covalent_executor_template"
 # is the name of the directory the plugin is in. "custom" is name of the module.
-plugins_list = ["ec2 = covalent_ec2_executor.ec2"]
+plugins_list = ["ec2 = covalent_ec2_plugin.ec2"]
 
 setup_info = {
     # Your plugin should use the naming convention 'covalent-abcdef-plugin'
