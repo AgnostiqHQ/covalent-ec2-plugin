@@ -23,15 +23,16 @@
 import subprocess
 import os
 from typing import Any, Callable, Dict, List, Tuple
+import cloudpickle as pickle
 import boto3, botocore
 from multiprocessing import Queue as MPQ
+import paramiko
+from  scp import SCPClient
 
 # Covalent imports
 from covalent._results_manager.result import Result
 from covalent._shared_files import logger
 
-
-# The EC2Executor should inherit from the SSH Executor
 from covalent.executor.ssh import SSHExecutor
 
 app_log = logger.app_log
@@ -43,38 +44,35 @@ executor_plugin_name = "EC2Executor"
 
 _EXECUTOR_PLUGIN_DEFAULTS = {
     "username": "",
-    "hostname": "",
     "ssh_key_file": os.path.join(os.environ["HOME"], ".ssh/id_rsa") or "",
+    "instance_type": "t2.micro",
+    "volume_size": "8GiB",
+    "ami": "amzn-ami-hvm-*-x86_64-gp2",
+    "vpc": "",
+    "subnet": "",
     "profile": os.environ.get("AWS_PROFILE") or "",
     "credentials_file": os.path.join(os.environ["HOME"], ".aws/credentials"),
     "cache_dir": os.path.join(
         os.environ.get("XDG_CACHE_HOME") or os.path.join(os.environ["HOME"], ".cache"), "covalent"
     ),
-    "remote_cache_dir": ".cache/covalent",
     "python3_path": "",
     "run_local_on_ec2_fail": False,
 }
-
 
 class EC2Executor(SSHExecutor):
     """
     Executor class that invokes the input function on an EC2 instance
     Args:
         username: username used by an SSH client to authenticate to the instance.
-        hostname: The public DNS name of the instance
         profile: The name of the AWS profile
         credentials_file: Filename of the credentials file used for authentication to AWS.
         ssh_key_file: Filename of the private key used for authentication with the remote server if it exists.
         run_local_on_ec2_fail: If True, and the execution fails to run on the instance,
             then the execution is run on the local machine.
-        _INFRA_DIR: The path to the directory containing the terraform configuration files
-        _BUCKET_NAME: The name of the AWS S3 bucket used in manipulating result objects.
-        _BUCKET_REGION: The location of the S3 bucket
+        _INFRA_DIR: The path to the directory containing Terraform configuration files
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
-    _INFRA_DIR = "../infra"
-    _BUCKET_NAME = "covalent-ec2-executor-bucket"
-    _BUCKET_REGION = "ca-central-1"
+    _INFRA_DIR = "infra"
 
     def __init__(
             self,
@@ -82,7 +80,7 @@ class EC2Executor(SSHExecutor):
             hostname: str,
             profile: str,
             credentials_file: str,
-            ssh_key_file: str = os.path.join(os.environ["HOME"], ".ssh/id_rsa"),
+            ssh_key_file: str,
             **kwargs
     ) -> None:
         self.username = username
@@ -93,78 +91,98 @@ class EC2Executor(SSHExecutor):
         self.kwargs = kwargs
         super().__init__(username, hostname, **kwargs)
 
-    def setup(self) -> Any:
+    def setup(self) -> None:
         """
-        Calls Terraform code to setup the infrastructure for EC2
-        Terraform processes the config parameters defined in "aws user_data" for deploying resources such
-        as the bucket for storing pickled result objects and the vpc that hosts the instance.
-        Args:
-            region: The region where the bucket is deployed
+        Invokes Terraform to provision supporting resources for the instance
         """
-        try:
-            session = boto3.Session(profile_name=self.profile)
-            client = session.client('s3')
-            if client.head_bucket(Bucket=self._BUCKET_NAME):
-                app_log.log(level=1, msg=f"{self._BUCKET_NAME} already exists.")
+        subprocess.run(["terraform", "init"], cwd=self._INFRA_DIR)
+        subprocess.run(["terraform", "plan", "-auto-approve"], cwd=self._INFRA_DIR)
+        subprocess.run(["terraform", "apply"], cwd=self._INFRA_DIR)
 
-            else:
-                client.create_bucket(
-                    ACL='public-read-write',
-                    Bucket=self._BUCKET_NAME,
-                    CreateBucketConfiguration={
-                        'LocationConstraint': self._BUCKET_REGION
-                    },
-
-                    ObjectOwnership='BucketOwnerPreferred',
-                )
-        except botocore.exceptions.ClientError as e:
-            app_log.error(e)
-
-        # subprocess.run(["terraform", "init"], cwd=self._INFRA_DIR)
-        # subprocess.run(["terraform", "plan", "-auto-approve"], cwd=self._INFRA_DIR)
-        # subprocess.run(["terraform", "apply"], cwd=self._INFRA_DIR)
-
-    def teardown(self, info_dict: dict) -> Any:
+    def teardown(self) -> None:
         """
         Terminates the running instance after workflow execution and destroys all supporting resources
         """
 
         subprocess.run(["terraform", "destroy"], cwd=self._INFRA_DIR)
-        subprocess.run(["aws", "s3", "rb", f"s3://{self._BUCKET_NAME}", "--force", f"--profile={self.profile}"])
-        return info_dict
 
-    def run(self, function: Callable, args: List, kwargs: Dict):
-
+    def run(self, function: Callable, args: List, kwargs: Dict, task_metadata: Dict) -> Any:
+        
         """
-        Runs the executable function and manipulates the result object
-        - pickle function and upload to S3 bucket
-        - terraform init and run
-        - Download pickle file using aws s3 cp, unpickle, and run the code
-        - Generate and pickle res obj and uploads back to s3
+        Executes the callable function on the instance and manipulates the result object
         """
-
-        # Attempt to connect via SSH
-        try:
-            if not self._client_connect():
-                # Attempt to connect via public IP address ( to be implemented)
-                pass
-        except ConnectionError as e:
-            app_log.error(e)
-
-    def execute(
-            self,
-            function: Any,
-            args: list,
-            kwargs: dict,
-            dispatch_id: str,
-            results_dir: str,
-            node_id: int = -1,
-            info_queue: MPQ = None,
-    ) -> Any:
+        
         self.setup()
-        self.run(function=function, args=args, kwargs=kwargs)
+            
+        dispatch_id = task_metadata['dispatch_id']
+        node_id = task_metadata['node_id']
+        function_file = f"func-{dispatch_id}-{node_id}.pkl"
+        result_file = f"result-{dispatch_id}-{node_id}.pkl"
+        script_file = f"script-{dispatch_id}-{node_id}.pkl"
+
+        with open(function_file, "wb") as f:
+            pickle.dump((function, args, kwargs), f)
+        session = boto3.Session(profile_name=self.profile)
+        client = session.client('s3')
+
+        # try:
+        #     with open(function_file, "rb") as f:
+        #         client.upload_fileobj(f, "covalent_ec2_bucket")
+
+        # except botocore.exceptions.ClientError as e:
+        #     app_log.error(e)
+        #     exit(1)
+
+        exec_script = "\n".join(
+            [
+                "import os",
+                "import cloudpickle as pickle",
+                "import boto3",
+                f"function_filename = os.path.join(/tmp/covalent/{function_file})",
+                f"results_filename = os.path.join(/tmp/covalent/{result_file})",
+                "s3 = boto3.client('s3')",
+                f"s3.download_file('covalent_ec2_bucket', {function_file}, function_filename)",
+                "with open(function_filename, 'rb') as f_in:",
+                "   function, args, kwargs = pickle.load(f_in)",
+                "result = function(*args, **kwargs)",
+                "with open(results_filename,'wb') as f_out:",
+                "    pickle.dump(result, f_out)",
+                f"s3.upload_file(results_filename, 'covalent_ec2_bucket', {result_file})",
+                "",
+            ]
+        )
+
+        with open(script_file, "w") as f:
+            f.write(exec_script)
+            
+        self.client = paramiko.SSHClient() 
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        
+         # Attempt to connect to instance via SSH
+        try:
+            self._client_connect()
+        except Exception as e:
+            app_log.error(e)
+        
+        scp = SCPClient(self.client.get_transport())
+        scp.put(function_file)
+        scp.put(result_file)
+        scp.put(script_file)
+        
+        # Execute the script on the instance
+        cmd = f"python3 /tmp/covalent/{script_file}"
+        _, stdout, stderr = self.client.exec_command(cmd)
+        
+        if stderr:
+            app_log.error(stderr)
+            exit(1)
+        
+        if stdout:
+            app_log.log(stdout)    
+        self.client.close()
         self.teardown()
-        return None
+        return (None, stdout.getvalue(), stderr.getvalue())
+        
 
     def get_status(self, info_dict: dict) -> Result:
         """
@@ -180,17 +198,3 @@ class EC2Executor(SSHExecutor):
         """
 
         return info_dict.get("STATUS", Result.NEW_OBJ)
-
-    def cancel(self, info_dict: dict = {}) -> Tuple[Any, str, str]:
-        """
-        Cancel the execution task.
-
-        Args:
-            info_dict: a dictionary containing any neccessary parameters
-                needed to halt the task execution.
-
-        Returns:
-            Null values in the same structure as a successful return value (a 4-element tuple).
-        """
-
-        return (None, "", "", InterruptedError)
