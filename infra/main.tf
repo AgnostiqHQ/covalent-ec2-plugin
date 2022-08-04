@@ -1,124 +1,48 @@
+# Copyright 2021 Agnostiq Inc.
+#
+# This file is part of Covalent.
+#
+# Licensed under the GNU Affero General Public License 3.0 (the "License").
+# A copy of the License may be obtained with this software package or at
+#
+#      https://www.gnu.org/licenses/agpl-3.0.en.html
+#
+# Use of this file is prohibited except in compliance with the License. Any
+# modifications or derivative works of this file must retain this copyright
+# notice, and modified files must contain a notice indicating that they have
+# been altered from the originals.
+#
+# Covalent is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the License for more details.
+#
+# Relief from the License may be granted by purchasing a commercial license.
+
 provider "aws" {
     profile = "default"
-    region = local.region
-    shared_config_files = ["~/.aws/config"]
-    shared_credentials_files = ["~/.aws/credentials"]
+    region = var.aws_region
 }
 
-locals {
-  name   = "covalent-ec2"
-  region = "ca-central-1"
-  bucket = "covalent-ec2-bucket"
-  environment = "covalent-ec2"
-
-  user_data = <<-EOT
-  #!/usr/bin/bash
-  cd ~
-  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-  bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda
-  rm Miniconda3-latest-Linux-x86_64.sh
-  echo 'export PATH="~/miniconda/bin:$PATH"' >> ~/.bashrc 
-  # Refresh basically
-  source .bashrc
-  conda update conda -y
-  conda init bash
-  source .bashrc
-  conda create -n covalent-ec2-setup python=3.8.10 -y
-  conda activate covalent-ec2-setup 
-  echo 'Installing Covalent pre-release and dependencies'
-  pip install covalent --pre
-  covalent --version
-  pip install cloudpickle
-  pip install botocore
-  pip install boto3
-
-  EOT
-
-  tags = {
-    Owner       = local.environment
-    Environment = local.environment
-  }
-}
 
 ################################################################################
 # Supporting Resources
 ################################################################################
 
-module "vpc" {
-    source = "terraform-aws-modules/vpc/aws"
-    version = "~> 3.0"
-
-    name = local.name
-    cidr = "10.99.0.0/18"
-    enable_dns_hostnames = true
-    enable_dns_support = true
-    azs              = ["${local.region}a"]
-    public_subnets   = ["10.99.0.0/24"]
-    private_subnets  = ["10.99.3.0/24"]
-    tags = local.tags
-}
-
 data "aws_ami" "ubuntu" {
-    most_recent = true
-    owners = ["099720109477"]
+  most_recent = true
 
-    filter {
-        name = "name"
-        values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-    }
-
-    filter {
-        name = "virtualization-type"
-        values = ["hvm"]
-    }
-}
-
-module "security_group" {
-    source = "terraform-aws-modules/security-group/aws"
-    version = "~> 4.0"
-
-    name = "${local.name}-security-gp"
-    description = "Test security group for usage with EC2 instance"
-    vpc_id = module.vpc.vpc_id
-
-    ingress_cidr_blocks = ["0.0.0.0/0"]
-    ingress_rules = ["http-80-tcp", "all-icmp"]
-    ingress_with_cidr_blocks = [
-      {
-        from_port = 22
-        to_port   = 22
-        protocol  = "tcp"
-        cidr_blocks = "0.0.0.0/0"
-      }
-    ]
-    egress_rules = ["all-all"]
-
-    tags = local.tags
-    
-}
-
-resource "aws_s3_bucket" "covalent_ec2_bucket" {
-  bucket = local.bucket
-
-  tags = {
-    Name = local.bucket
+  filter {
+    name = "name"
+    values = ["ubuntu-minimal/images/hvm-ssd/ubuntu-focal-20.04-amd64-minimal-*"]
   }
+
+  owners = ["099720109477"]
 }
 
-resource "aws_s3_bucket_acl" "covalent_ec2_bucket_acl" {
 
-  bucket = aws_s3_bucket.covalent_ec2_bucket.id
-  acl = "public-read-write"
-  depends_on = [module.ec2_instance.id, module.vpc.id]
-  
-}
-
-resource "aws_eip" "lb" {
-  instance = module.ec2_instance.id
-  vpc      = true
-}
-resource "aws_internet_gateway" "covalent_ec2_gw" {
-  # vpc_id = module.vpc.vpc_id
+resource "aws_s3_bucket" "s3_bucket" {
+  bucket_prefix = var.aws_s3_bucket == "" ? var.name : ""
+  count         = var.aws_s3_bucket == "" ? 1 : 0
 }
 
 ################################################################################
@@ -126,21 +50,52 @@ resource "aws_internet_gateway" "covalent_ec2_gw" {
 ################################################################################
 
 module "ec2_instance" {
-  source  = "terraform-aws-modules/ec2-instance/aws"
+  source = "terraform-aws-modules/ec2-instance/aws"
   version = "~> 3.0"
 
-  name    = local.name
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t2.micro"
-  availability_zone      = element(module.vpc.azs, 0)
-  subnet_id              = element(module.vpc.private_subnets, 0)
-  vpc_security_group_ids = [module.security_group.security_group_id]
-  monitoring             = true
+  name = var.name
+  ami = data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
+
+  vpc_security_group_ids = [aws_security_group.covalent_firewall.id]
+  subnet_id = "${var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id}"
   associate_public_ip_address = true
-  depends_on = [aws_internet_gateway.covalent_ec2_gw]
 
-  user_data_base64 = base64encode(local.user_data)
+  key_name = ""
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+  monitoring = true
 
-  tags = local.tags
+  root_block_device = [{
+    volume_type = "gp2"
+    volume_size = var.disk_size
+  }]
+
+  user_data = <<EOF
+  #!/bin/bash
+  cd ~
+  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda
+  rm Miniconda3-latest-Linux-x86_64.sh
+  echo 'export PATH="~/miniconda/bin:$PATH"' >> ~/.bashrc 
+  source .bashrc
+  conda update conda -y
+  conda init bash
+  source .bashrc
+  conda create -n covalent python=3.8 -y
+  conda activate covalent
+  pip install cloudpickle
+  pip install botocore
+  pip install boto3
+  pip install --pre covalent
+  alembic init covalent_migrations/
+  covalent start
+    )
+  EOF
 }
+
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "ec2_profile"
+  role = aws_iam_role.covalent_iam_role.name
+}
+
 
