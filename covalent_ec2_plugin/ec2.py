@@ -20,20 +20,20 @@
 
 """EC2 executor plugin for the Covalent dispatcher."""
 
-import subprocess
 import os
-from typing import Any, Callable, Dict, List, Tuple
-import cloudpickle as pickle
-import boto3, botocore
+import subprocess
 from multiprocessing import Queue as MPQ
+from typing import Any, Callable, Dict, List, Tuple
+
+import boto3
+import cloudpickle as pickle
 import paramiko
-from  scp import SCPClient
 
 # Covalent imports
 from covalent._results_manager.result import Result
 from covalent._shared_files import logger
-
-from covalent.executor.ssh import SSHExecutor
+from covalent_ssh_plugin.ssh import SSHExecutor
+from scp import SCPClient
 
 app_log = logger.app_log
 log_stack_info = logger.log_stack_info
@@ -44,7 +44,7 @@ executor_plugin_name = "EC2Executor"
 
 _EXECUTOR_PLUGIN_DEFAULTS = {
     "username": "",
-    "ssh_key_file": os.path.join(os.environ["HOME"], ".ssh/id_rsa") or "",
+    "key_file": "",
     "instance_type": "t2.micro",
     "volume_size": "8GiB",
     "ami": "amzn-ami-hvm-*-x86_64-gp2",
@@ -55,146 +55,314 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     "cache_dir": os.path.join(
         os.environ.get("XDG_CACHE_HOME") or os.path.join(os.environ["HOME"], ".cache"), "covalent"
     ),
-    "python3_path": "",
-    "run_local_on_ec2_fail": False,
 }
+
 
 class EC2Executor(SSHExecutor):
     """
     Executor class that invokes the input function on an EC2 instance
     Args:
-        username: username used by an SSH client to authenticate to the instance.
+        username: username used to authenticate to the instance.
         profile: The name of the AWS profile
         credentials_file: Filename of the credentials file used for authentication to AWS.
-        ssh_key_file: Filename of the private key used for authentication with the remote server if it exists.
+        key_file: Filename of the private key used for authentication with the remote server if it exists.
         run_local_on_ec2_fail: If True, and the execution fails to run on the instance,
             then the execution is run on the local machine.
-        _INFRA_DIR: The path to the directory containing Terraform configuration files
+        _TF_DIR: The directory containing Terraform configuration files
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
-    _INFRA_DIR = "infra"
+
+    # _INFRA_DIR = os.environ["HOME"] + "/agnostiq/covalent-ec2-plugin/infra"
+    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "infra"))
 
     def __init__(
-            self,
-            username: str,
-            hostname: str,
-            profile: str,
-            credentials_file: str,
-            ssh_key_file: str,
-            **kwargs
+        self,
+        profile: str,
+        credentials_file: str,
+        key_file: str,
+        username: str = "ubuntu",
+        hostname: str = "",
+        remote_home_dir: str = "/home/ubuntu",
+        **kwargs,
     ) -> None:
         self.username = username
         self.hostname = hostname
+        self.remote_home_dir = remote_home_dir
         self.profile = profile
         self.credentials_file = credentials_file
-        self.ssh_key_file = ssh_key_file
+        self.key_file = key_file
         self.kwargs = kwargs
         super().__init__(username, hostname, **kwargs)
 
     def setup(self) -> None:
         """
         Invokes Terraform to provision supporting resources for the instance
+
         """
-        subprocess.run(["terraform", "init"], cwd=self._INFRA_DIR)
-        subprocess.run(["terraform", "plan", "-auto-approve"], cwd=self._INFRA_DIR)
-        subprocess.run(["terraform", "apply"], cwd=self._INFRA_DIR)
+        try:
+            subprocess.run(["terraform", "init"], cwd=self._TF_DIR)
+            subprocess.run(["terraform", "apply", "-auto-approve=true"], cwd=self._TF_DIR)
+
+        except subprocess.SubprocessError as se:
+            app_log.debug("Failed to deploy infrastructure")
+            app_log.error(se)
 
     def teardown(self) -> None:
         """
-        Terminates the running instance after workflow execution and destroys all supporting resources
+        Invokes Terraform to terminate the instance and teardown supporting resources
+        """
+        try:
+            subprocess.run(["terraform", "destroy", "-auto-approve=true"], cwd=self._TF_DIR)
+
+        except subprocess.SubprocessError as se:
+            app_log.debug("Failed to destroy infrastructure")
+            app_log.error(se)
+
+    def get_hostname(self) -> None:
+        """
+        Resolves the hostname of the instance
+
         """
 
-        subprocess.run(["terraform", "destroy"], cwd=self._INFRA_DIR)
+        if not self.hostname:
+            client = boto3.Session(profile_name=self.profile).client("ec2")
+            ec2_client = client.describe_instances()
+            key_name = self.key_file.split("/")[-1].split(".")[0]
+
+            for instances in ec2_client["Reservations"]:
+                for instance in instances["Instances"]:
+                    if instance["KeyName"] == key_name and instance["State"]["Name"] == "running":
+                        self.hostname = instance["PublicDnsName"]
+
+    def _client_connect(self) -> bool:
+        """
+        Helper function for connecting to the instance through the paramiko module.
+
+        Args:
+            None
+
+        Returns:
+            True if connection to the instance was successful, False otherwise.
+        """
+
+        self.get_hostname()
+
+        ssh_success = False
+        self.client = paramiko.SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+        if self.key_file:
+            try:
+                self.client.connect(
+                    hostname=self.hostname, username=self.username, key_filename=self.key_file
+                )
+
+                ssh_success = True
+            except Exception as e:
+                app_log.error(e)
+
+        else:
+            message = "no SSH key file found. Cannot connect to host."
+            app_log.error(message)
+
+        return ssh_success
 
     def run(self, function: Callable, args: List, kwargs: Dict, task_metadata: Dict) -> Any:
-        
         """
-        Executes the callable function on the instance and manipulates the result object
+        Invokes setup() and teardown() hooks and executes the workflow function on the instance
+
         """
-        
-        self.setup()
-            
-        dispatch_id = task_metadata['dispatch_id']
-        node_id = task_metadata['node_id']
-        function_file = f"func-{dispatch_id}-{node_id}.pkl"
-        result_file = f"result-{dispatch_id}-{node_id}.pkl"
-        script_file = f"script-{dispatch_id}-{node_id}.pkl"
 
-        with open(function_file, "wb") as f:
-            pickle.dump((function, args, kwargs), f)
-        session = boto3.Session(profile_name=self.profile)
-        client = session.client('s3')
+        try:
+            self.setup()
+        except Exception as e:
+            app_log.debug("Infrastructure deployment failed")
+            app_log.error(e)
 
-        # try:
-        #     with open(function_file, "rb") as f:
-        #         client.upload_fileobj(f, "covalent_ec2_bucket")
+        try:
+            self.run_func(function=function, args=args, kwargs=kwargs, task_metadata=task_metadata)
+        except Exception as e:
+            app_log.warning(f"Failed to run function {function}")
+            app_log.error(str(e), exc_info=1)
 
-        # except botocore.exceptions.ClientError as e:
-        #     app_log.error(e)
-        #     exit(1)
+    def run_func(self, function: Callable, args: list, kwargs: dict, task_metadata: Dict) -> Any:
+        """
+        Runs the workflow function on the instance and returns the result.
 
+        Args:
+            function: Function to be run on the remote machine.
+            args: Positional arguments to be passed to the function.
+            kwargs: Keyword argument to be passed to the function.
+
+        Returns:
+            The result of the executed function.
+        """
+
+        dispatch_id = task_metadata["dispatch_id"]
+        node_id = task_metadata["node_id"]
+        operation_id = f"{dispatch_id}_{node_id}"
+
+        exception = None
+
+        ssh_success = self._client_connect()
+        app_log.warning("Status of connection:", ssh_success)
+
+        if not ssh_success:
+            message = f"Could not connect to host '{self.hostname}' as user '{self.username}'"
+            return self._on_ssh_fail(function, args, kwargs, message)
+
+        message = f"Executing node {node_id} on host {self.hostname}."
+        app_log.warning(message)
+
+        if self.python3_path == "":
+            cmd = "which python3"
+            self._client_connect()
+            client_in, client_out, client_err = self.client.exec_command(cmd)
+            exit_status = client_out.channel.recv_exit_status()
+            cmd_output = client_out.read().decode("utf-8").strip()
+            if "python3" in cmd_output:
+                message = f"Python 3 is installed on host machine {self.hostname}"
+                app_log.debug(message)
+            else:
+                message = f"No Python 3 installation found on host machine {self.hostname}"
+                app_log.error(message)
+
+        cmd = f"mkdir -p {self.remote_cache_dir}"
+
+        try:
+            result = self.client.exec_command(cmd)
+
+        except Exception as e:
+            app_log.error(e)
+
+        # Pickle and save location of the function and its arguments:
+        (
+            function_file,
+            script_file,
+            remote_function_file,
+            remote_script_file,
+            remote_result_file,
+        ) = self._write_function_files(operation_id, function, args, kwargs)
+
+        scp = SCPClient(self.client.get_transport())
+        scp.put(function_file, remote_function_file)
+        scp.put(script_file, remote_script_file)
+
+        # Run the function:
+        try:
+            cmd = f"python3 {remote_script_file}"
+            self._client_connect()
+            stdin, stdout, stderr = self.client.exec_command(cmd)
+            exit_status = stdout.channel.recv_exit_status()
+            if exit_status == 0:
+                app_log.warning(f"Execution of {remote_script_file} was completed")
+            else:
+                app_log.error(
+                    f"Failed to execute {remote_script_file} on host {self.hostname} with exit status {exit_status}"
+                )
+        except Exception as e:
+            app_log.error(e)
+
+        # Check that a result file was produced:
+        cmd = f"ls {remote_result_file}"
+        stdin, stdout, stderr = self.client.exec_command(cmd)
+        exit_status = stdout.channel.recv_exit_status()
+        cmd_output = stdout.read().decode("utf-8").strip()
+        if cmd_output != remote_result_file:
+            message = (
+                f"Result file {remote_result_file} on remote host {self.hostname} was not found"
+            )
+            return self._on_ssh_fail(function, args, kwargs, message)
+
+        # scp the pickled result to the local machine here:
+        result_file = os.path.join(self.cache_dir, f"result_{operation_id}.pkl")
+        scp.get(remote_result_file, result_file)
+
+        # Load the result file:
+        with open(result_file, "rb") as f_in:
+            result, exception = pickle.load(f_in)
+
+        if exception is not None:
+            app_log.debug(f"exception: {exception}")
+            raise exception
+
+        self.client.close()
+        return result
+
+    def _write_function_files(
+        self,
+        operation_id: str,
+        fn: Callable,
+        args: list,
+        kwargs: dict,
+    ) -> Tuple:
+        """
+        Helper function to pickle the function to be executed to file, and write the
+            python script which calls the function.
+
+        Args:
+            operation_id: A concatenation of the dispatch ID and task ID.
+            fn: The input python function which will be executed and whose result
+                is ultimately returned by this function.
+            args: List of positional arguments to be used by the function.
+            kwargs: Dictionary of keyword arguments to be used by the function.
+        """
+
+        # Pickle and save location of the function and its arguments:
+        function_file = os.path.join(self.cache_dir, f"function_{operation_id}.pkl")
+
+        with open(function_file, "wb") as f_out:
+            pickle.dump((fn, args, kwargs), f_out)
+
+        remote_function_file = os.path.join(
+            self.remote_home_dir, self.remote_cache_dir, f"function_{operation_id}.pkl"
+        )
+
+        # Write the code that the instance will use to execute the function.
+
+        message = f"Function file names:\nLocal function file: {function_file}\n"
+        message += f"Remote function file: {remote_function_file}"
+        app_log.warning(message)
+
+        remote_result_file = os.path.join(
+            self.remote_home_dir, self.remote_cache_dir, f"result_{operation_id}.pkl"
+        )
         exec_script = "\n".join(
             [
-                "import os",
-                "import cloudpickle as pickle",
-                "import boto3",
-                f"function_filename = os.path.join(/tmp/covalent/{function_file})",
-                f"results_filename = os.path.join(/tmp/covalent/{result_file})",
-                "s3 = boto3.client('s3')",
-                f"s3.download_file('covalent_ec2_bucket', {function_file}, function_filename)",
-                "with open(function_filename, 'rb') as f_in:",
-                "   function, args, kwargs = pickle.load(f_in)",
-                "result = function(*args, **kwargs)",
-                "with open(results_filename,'wb') as f_out:",
-                "    pickle.dump(result, f_out)",
-                f"s3.upload_file(results_filename, 'covalent_ec2_bucket', {result_file})",
+                "import sys",
+                "",
+                "result = None",
+                "exception = None",
+                "",
+                "",
+                "try:",
+                "    import cloudpickle as pickle",
+                "except Exception as e:",
+                "    import pickle",
+                f"    with open('{remote_result_file}','wb') as f_out:",
+                "        pickle.dump((None, e), f_out)",
+                "        exit()",
+                "",
+                f"with open('{remote_function_file}', 'rb') as f_in:",
+                "    fn, args, kwargs = pickle.load(f_in)",
+                "    try:",
+                "        result = fn(*args, **kwargs)",
+                "    except Exception as e:",
+                "        exception = e",
+                "",
+                f"with open('{remote_result_file}','wb') as f_out:",
+                "    pickle.dump((result, exception), f_out)",
                 "",
             ]
         )
+        script_file = os.path.join(self.cache_dir, f"exec_{operation_id}.py")
+        remote_script_file = os.path.join(self.remote_cache_dir, f"exec_{operation_id}.py")
+        with open(script_file, "w") as f_out:
+            f_out.write(exec_script)
 
-        with open(script_file, "w") as f:
-            f.write(exec_script)
-            
-        self.client = paramiko.SSHClient() 
-        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        
-         # Attempt to connect to instance via SSH
-        try:
-            self._client_connect()
-        except Exception as e:
-            app_log.error(e)
-        
-        scp = SCPClient(self.client.get_transport())
-        scp.put(function_file)
-        scp.put(result_file)
-        scp.put(script_file)
-        
-        # Execute the script on the instance
-        cmd = f"python3 /tmp/covalent/{script_file}"
-        _, stdout, stderr = self.client.exec_command(cmd)
-        
-        if stderr:
-            app_log.error(stderr)
-            exit(1)
-        
-        if stdout:
-            app_log.log(stdout)    
-        self.client.close()
-        self.teardown()
-        return (None, stdout.getvalue(), stderr.getvalue())
-        
-
-    def get_status(self, info_dict: dict) -> Result:
-        """
-        Get the current status of the task.
-
-        Args:
-            info_dict: a dictionary containing any necessary parameters needed to query the
-                status. For this class (LocalExecutor), the only info is given by the
-                "STATUS" key in info_dict.
-
-        Returns:
-            A Result status object (or None, if "STATUS" is not in info_dict).
-        """
-
-        return info_dict.get("STATUS", Result.NEW_OBJ)
+        return (
+            function_file,
+            script_file,
+            remote_function_file,
+            remote_script_file,
+            remote_result_file,
+        )
