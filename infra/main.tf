@@ -23,11 +23,6 @@ provider "aws" {
     region = var.aws_region
 }
 
-
-################################################################################
-# Supporting Resources
-################################################################################
-
 data "aws_ami" "ubuntu" {
   most_recent = true
 
@@ -39,21 +34,14 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"]
 }
 
-
-resource "aws_s3_bucket" "s3_bucket" {
-  bucket_prefix = var.aws_s3_bucket == "" ? var.name : ""
-  count         = var.aws_s3_bucket == "" ? 1 : 0
+resource "aws_iam_instance_profile" "ec2" {
+  name = "ec2"
+  role = aws_iam_role.covalent_iam_role.name
 }
 
-################################################################################
-# EC2 Module
-################################################################################
 
-module "ec2_instance" {
-  source = "terraform-aws-modules/ec2-instance/aws"
-  version = "~> 3.0"
+resource "aws_instance" "covalent_svc_instance" {
 
-  name = var.name
   ami = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
 
@@ -61,41 +49,53 @@ module "ec2_instance" {
   subnet_id = "${var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id}"
   associate_public_ip_address = true
 
-  key_name = ""
-  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+  key_name = "test-pair"  # Name of a valid key file
+  iam_instance_profile = aws_iam_instance_profile.ec2.name
   monitoring = true
 
-  root_block_device = [{
+  root_block_device {
     volume_type = "gp2"
     volume_size = var.disk_size
-  }]
+  }
 
-  user_data = <<EOF
-  #!/bin/bash
-  cd ~
-  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-  bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda
-  rm Miniconda3-latest-Linux-x86_64.sh
-  echo 'export PATH="~/miniconda/bin:$PATH"' >> ~/.bashrc 
-  source .bashrc
-  conda update conda -y
-  conda init bash
-  source .bashrc
-  conda create -n covalent python=3.8 -y
-  conda activate covalent
-  pip install cloudpickle
-  pip install botocore
-  pip install boto3
-  pip install --pre covalent
-  alembic init covalent_migrations/
-  covalent start
-    )
-  EOF
+  tags = {
+    "Name" = var.name
+  }
+
 }
 
-resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "ec2_profile"
-  role = aws_iam_role.covalent_iam_role.name
+resource "null_resource" "deps_install" {
+
+  provisioner "remote-exec" {
+
+    inline = [
+      "apt-get update",
+      "echo 'Installing cloudpickle for shell-level imports'",
+      "python3 -m pip install cloudpickle",
+      "echo 'Installing Conda'",
+      "wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh",
+      "sh ./Miniconda3-py38_4.12.0-Linux-x86_64.sh -b -p /home/ubuntu/miniconda3",
+      "rm ./Miniconda3-py38_4.12.0-Linux-x86_64.sh",
+      "echo 'export PATH='/home/ubuntu/miniconda3/bin:$PATH'' >> ~/.bashrc ",
+      "source ~/.bashrc",
+      "/home/ubuntu/miniconda3/bin/conda init bash",
+      "echo 'Activating Conda environment'",
+      "/home/ubuntu/miniconda3/bin/conda create -y -n covalent python=3.8",
+      "/home/ubuntu/miniconda3/bin/conda activate covalent",
+      "/home/ubuntu/miniconda3/bin/pip install --pre covalent",
+      "echo 'Starting Covalent'",
+      "/home/ubuntu/miniconda3/bin/covalent db migrate",
+      "/home/ubuntu/miniconda3/bin/covalent start"
+    ]
+
+  }
+
+  connection {
+    type = "ssh"
+    user = "ubuntu"
+    private_key = file("/home/user/.ssh/test-pair.pem") # Path to a valid key file
+    host = aws_instance.covalent_svc_instance.public_ip
+
+  }
+
 }
-
-
