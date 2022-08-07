@@ -1,4 +1,2 @@
-covalent-ssh-plugin==0.3.0
-python-terraform==0.10.1
 git+https://github.com/AgnostiqHQ/covalent@master#egg=covalent
-
+covalent-ssh-plugin>=0.3.0
