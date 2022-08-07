@@ -54,14 +54,7 @@ resource "aws_security_group" "covalent_firewall" {
     protocol  = "tcp"
     cidr_blocks = ["${chomp(data.http.myip.body)}/32"]
     }
-    #   {
-    #     description = "Covalent API Access"
-    #     from_port = 48008
-    #     to_port = 48008
-    #     protocol = "tcp"
-    #     cidr_blocks = ["${chomp(data.http.myip.body)}/32"]
-    #   }
-  
+
   egress {
       description = "Allow all outbound traffic"
       from_port = 0
@@ -70,4 +63,3 @@ resource "aws_security_group" "covalent_firewall" {
     cidr_blocks = ["0.0.0.0/0"]
     }
 }
-

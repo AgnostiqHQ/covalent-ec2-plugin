@@ -25,12 +25,7 @@ variable "name" {
 
 variable "aws_region" {
     default = "ca-central-1"
-    description = "Region where Covalent and supporting resources for the EC2 plugin are deployed"
-}
-
-variable "aws_s3_bucket" {
-  default     = ""
-  description = "S3 bucket used for file caching"
+    description = "Region where resources for the EC2 plugin are deployed"
 }
 
 variable "vpc_id" {
