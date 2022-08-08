@@ -24,7 +24,7 @@ variable "name" {
 }
 
 variable "aws_region" {
-    default = "ca-central-1"
+    default = "us-east-1"
     description = "Region where resources for the EC2 plugin are deployed"
 }
 

@@ -43,14 +43,14 @@ log_stack_info = logger.log_stack_info
 executor_plugin_name = "EC2Executor"
 
 _EXECUTOR_PLUGIN_DEFAULTS = {
-    "username": "",
+    "username": "ubuntu",
     "key_file": "",
     "instance_type": "t2.micro",
     "volume_size": "8GiB",
     "ami": "amzn-ami-hvm-*-x86_64-gp2",
     "vpc": "",
     "subnet": "",
-    "profile": os.environ.get("AWS_PROFILE") or "",
+    "profile": os.environ.get("AWS_PROFILE") or "default",
     "credentials_file": os.path.join(os.environ["HOME"], ".aws/credentials"),
     "cache_dir": os.path.join(
         os.environ.get("XDG_CACHE_HOME") or os.path.join(os.environ["HOME"], ".cache"), "covalent"
@@ -71,8 +71,6 @@ class EC2Executor(SSHExecutor):
         _TF_DIR: The directory containing Terraform configuration files
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
-
-    # _INFRA_DIR = os.environ["HOME"] + "/agnostiq/covalent-ec2-plugin/infra"
     _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "infra"))
 
     def __init__(
@@ -80,6 +78,11 @@ class EC2Executor(SSHExecutor):
         profile: str,
         credentials_file: str,
         key_file: str,
+        instance_type: str = "",
+        volume_size: str = "",
+        ami: str = "",
+        vpc: str = "",
+        subnet: str = "",
         username: str = "ubuntu",
         hostname: str = "",
         remote_home_dir: str = "/home/ubuntu",
@@ -87,6 +90,11 @@ class EC2Executor(SSHExecutor):
     ) -> None:
         self.username = username
         self.hostname = hostname
+        self.instance_type = instance_type,
+        self.volume_size = volume_size,
+        self.ami = ami,
+        self.vpc = vpc,
+        self.subnet = subnet,
         self.remote_home_dir = remote_home_dir
         self.profile = profile
         self.credentials_file = credentials_file
