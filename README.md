@@ -67,7 +67,7 @@ executor = EC2Executor(
     ami="amzn-ami-hvm-*-x86_64-gp2",
     vpc="",
     subnet="",
-    profile="user_profile",
+    profile="custom_profile",
     credentials_file="~/.aws/credentials"
 )
 
