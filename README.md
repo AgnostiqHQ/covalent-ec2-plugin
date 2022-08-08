@@ -2,8 +2,8 @@
 
 <div align="center">
 
-![covalent-ec2-plugin logo](https://github.com/AgnostiqHQ/covalent-ec2-plugin/blob/base-setup/aws_ec2.jpg#gh-dark-mode-only)
-![covalent-ec2-plugin logo](https://github.com/AgnostiqHQ/covalent-ec2-plugin/blob/base-setup/aws_ec2.jpg#gh-light-mode-only)
+![covalent-ec2-plugin logo](https://github.com/AgnostiqHQ/covalent-ec2-plugin/blob/base-setup/assets/aws_ec2.jpg#gh-dark-mode-only)
+![covalent-ec2-plugin logo](https://github.com/AgnostiqHQ/covalent-ec2-plugin/blob/base-setup/assets/aws_ec2.jpg#gh-light-mode-only)
 
 &nbsp;
 
