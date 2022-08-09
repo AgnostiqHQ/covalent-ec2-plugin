@@ -21,8 +21,10 @@
 """EC2 executor plugin for the Covalent dispatcher."""
 
 import os
+from socket import setdefaulttimeout
 import subprocess
 from multiprocessing import Queue as MPQ
+from time import sleep
 from typing import Any, Callable, Dict, List, Tuple
 
 import boto3
@@ -109,7 +111,7 @@ class EC2Executor(SSHExecutor):
         """
         try:
             subprocess.run(["terraform", "init"], cwd=self._TF_DIR)
-            subprocess.run(["terraform", "apply", "-auto-approve=true"], cwd=self._TF_DIR)
+            subprocess.run(["terraform", "apply", "-auto-approve=true", "-lock=false"], cwd=self._TF_DIR)
 
         except subprocess.SubprocessError as se:
             app_log.debug("Failed to deploy infrastructure")
@@ -120,7 +122,7 @@ class EC2Executor(SSHExecutor):
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
         try:
-            subprocess.run(["terraform", "destroy", "-auto-approve=true"], cwd=self._TF_DIR)
+            subprocess.run(["terraform", "destroy", "-auto-approve=true", "-lock=false"], cwd=self._TF_DIR)
 
         except subprocess.SubprocessError as se:
             app_log.debug("Failed to destroy infrastructure")
@@ -174,7 +176,7 @@ class EC2Executor(SSHExecutor):
 
         return ssh_success
 
-    def run(self, function: Callable, args: List, kwargs: Dict, task_metadata: Dict) -> Any:
+    async def run(self, function: Callable, args: List, kwargs: Dict, task_metadata: Dict) -> Any:
         """
         Invokes setup() and teardown() hooks and executes the workflow function on the instance
 
@@ -190,7 +192,7 @@ class EC2Executor(SSHExecutor):
             self.run_func(function=function, args=args, kwargs=kwargs, task_metadata=task_metadata)
         except Exception as e:
             app_log.warning(f"Failed to run function {function}")
-            app_log.error(str(e), exc_info=1)
+            app_log.error(e)
 
     def run_func(self, function: Callable, args: list, kwargs: dict, task_metadata: Dict) -> Any:
         """
@@ -212,14 +214,17 @@ class EC2Executor(SSHExecutor):
         exception = None
 
         ssh_success = self._client_connect()
+        
+        
         app_log.warning("Status of connection:", ssh_success)
 
         if not ssh_success:
             message = f"Could not connect to host '{self.hostname}' as user '{self.username}'"
-            return self._on_ssh_fail(function, args, kwargs, message)
-
+        
+        
         message = f"Executing node {node_id} on host {self.hostname}."
         app_log.warning(message)
+        
 
         if self.python3_path == "":
             cmd = "which python3"
@@ -228,12 +233,26 @@ class EC2Executor(SSHExecutor):
             exit_status = client_out.channel.recv_exit_status()
             cmd_output = client_out.read().decode("utf-8").strip()
             if "python3" in cmd_output:
-                message = f"Python 3 is installed on host machine {self.hostname}"
-                app_log.debug(message)
+                message = f"Python 3 is installed on host machine {self.hostname} at {cmd_output}"
+                app_log.warning(message)
             else:
                 message = f"No Python 3 installation found on host machine {self.hostname}"
                 app_log.error(message)
-
+                
+        
+        # Activate Conda env
+        cmd = "source /home/ubuntu/miniconda3/bin/activate covalent"
+        
+        self._client_connect()
+        client_in, client_out, client_err = self.client.exec_command(cmd)
+        exit_status = client_out.channel.recv_exit_status()
+        cmd_output = client_out.read().decode("utf-8").strip()
+        if str(exit_status) == "0":
+            app_log.warning(f"Conda activated successfully with {exit_status}")
+        else:
+            message = f"Conda activation failed on {self.hostname} with {exit_status}"
+            app_log.error(message)
+        
         cmd = f"mkdir -p {self.remote_cache_dir}"
 
         try:
@@ -257,7 +276,7 @@ class EC2Executor(SSHExecutor):
 
         # Run the function:
         try:
-            cmd = f"python3 {remote_script_file}"
+            cmd = f"/home/ubuntu/miniconda3/envs/covalent/bin/python3 {remote_script_file}"
             self._client_connect()
             stdin, stdout, stderr = self.client.exec_command(cmd)
             exit_status = stdout.channel.recv_exit_status()
@@ -270,20 +289,29 @@ class EC2Executor(SSHExecutor):
         except Exception as e:
             app_log.error(e)
 
-        # Check that a result file was produced:
-        cmd = f"ls {remote_result_file}"
-        stdin, stdout, stderr = self.client.exec_command(cmd)
-        exit_status = stdout.channel.recv_exit_status()
-        cmd_output = stdout.read().decode("utf-8").strip()
-        if cmd_output != remote_result_file:
-            message = (
-                f"Result file {remote_result_file} on remote host {self.hostname} was not found"
-            )
-            return self._on_ssh_fail(function, args, kwargs, message)
+        # # Check that a result file was produced:
+        # cmd = f"ls {remote_result_file}"
+        # stdin, stdout, stderr = self.client.exec_command(cmd)
+        # exit_status = stdout.channel.recv_exit_status()
+        # cmd_output = stdout.read().decode("utf-8")[-1].strip()
+        # app_log.warning(f'Output of looking for result file {cmd_output}')
+        # if cmd_output != remote_result_file[-1].strip():
+        #     message = (
+        #         f"Result file {remote_result_file} on remote host {self.hostname} was not found"
+        #     )
+            
+        #     return self._on_ssh_fail(function, args, kwargs, message)
+        # else:
+        #     message = (
+        #         f"Result file {remote_result_file} was found on host {self.hostname} in the directory {cmd_output}"
+        #     )
+        #     app_log.warning(f"Path to remote result file is {remote_result_file}")
+            
 
         # scp the pickled result to the local machine here:
         result_file = os.path.join(self.cache_dir, f"result_{operation_id}.pkl")
         scp.get(remote_result_file, result_file)
+        app_log.warning(f"Location of Result file is {result_file}")
 
         # Load the result file:
         with open(result_file, "rb") as f_in:
