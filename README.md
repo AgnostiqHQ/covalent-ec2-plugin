@@ -59,7 +59,7 @@ def my_task():
 or use a class object specified with a custom AWS profile within particular tasks:
 
 ```
-executor = EC2Executor(
+executor = ct.executor.EC2Executor(
     username="ubuntu",
     key_file="/home/user/.ssh/ec2_key.pem",
     instance_type="t2.micro",
