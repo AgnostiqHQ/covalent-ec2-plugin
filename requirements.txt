@@ -1,2 +1,0 @@
-git+https://github.com/AgnostiqHQ/covalent@master#egg=covalent
-git+https://github.com/AgnostiqHQ/covalent-ssh-plugin@develop#egg=covalent-ssh-plugin

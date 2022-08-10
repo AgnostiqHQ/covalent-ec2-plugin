@@ -1,0 +1,2 @@
+[covalent.executor.executor_plugins]
+ec2 = covalent_ec2_plugin.ec2

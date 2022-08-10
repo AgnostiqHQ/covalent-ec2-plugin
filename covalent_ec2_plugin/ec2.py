@@ -37,6 +37,8 @@ from covalent._shared_files import logger
 from covalent_ssh_plugin.ssh import SSHExecutor
 from scp import SCPClient
 
+from .scripts import EXEC_SCRIPT
+
 app_log = logger.app_log
 log_stack_info = logger.log_stack_info
 
@@ -364,43 +366,15 @@ class EC2Executor(SSHExecutor):
         remote_result_file = os.path.join(
             self.remote_home_dir, self.remote_cache_dir, f"result_{operation_id}.pkl"
         )
-        exec_script = "\n".join(
-            [
-                "import sys",
-                "",
-                "result = None",
-                "exception = None",
-                "",
-                "message = 'Result and exception initialized'",
-                "",
-                "try:",
-                "    import cloudpickle as pickle",
-                "except Exception as e:",
-                "    import pickle",
-                ""
-                f"    with open('{remote_result_file}','wb') as f_out:",
-                "        pickle.dump((None, e), f_out)",
-                "        exit()",
-                "",
-                f"with open('{remote_function_file}', 'rb') as f_in:",
-                ""
-                "    fn, args, kwargs = pickle.load(f_in)",
-                "    try:",
-                "        result = fn(*args, **kwargs)",
-                "    except Exception as e:",
-                "        exception = f' The function is {fn} and its Exception occured at line 387 with status {e}'",
-                
-                "",
-                f"with open('{remote_result_file}','wb') as f_out:",
-                "    "
-                "    pickle.dump((result, exception), f_out)",
-                "",
-            ]
-        )
         script_file = os.path.join(self.cache_dir, f"exec_{operation_id}.py")
         remote_script_file = os.path.join(self.remote_cache_dir, f"exec_{operation_id}.py")
         with open(script_file, "w") as f_out:
-            f_out.write(exec_script)
+            f_out.write(
+                EXEC_SCRIPT.format(
+                    remote_result_file=remote_result_file,
+                    remote_function_file=remote_function_file
+                )
+            )
 
         return (
             function_file,

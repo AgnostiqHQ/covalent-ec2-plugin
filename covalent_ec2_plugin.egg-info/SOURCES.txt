@@ -1,0 +1,11 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+covalent_ec2_plugin/__init__.py
+covalent_ec2_plugin/ec2.py
+covalent_ec2_plugin.egg-info/PKG-INFO
+covalent_ec2_plugin.egg-info/SOURCES.txt
+covalent_ec2_plugin.egg-info/dependency_links.txt
+covalent_ec2_plugin.egg-info/entry_points.txt
+covalent_ec2_plugin.egg-info/top_level.txt
