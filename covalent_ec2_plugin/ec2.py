@@ -104,7 +104,7 @@ class EC2Executor(SSHExecutor):
         self.kwargs = kwargs
         super().__init__(username, hostname, **kwargs)
 
-    def setup(self) -> None:
+    def setup_infra(self) -> None:
         """
         Invokes Terraform to provision supporting resources for the instance
 
@@ -117,7 +117,7 @@ class EC2Executor(SSHExecutor):
             app_log.debug("Failed to deploy infrastructure")
             app_log.error(se)
 
-    def teardown(self) -> None:
+    def teardown_infra(self) -> None:
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
@@ -183,7 +183,7 @@ class EC2Executor(SSHExecutor):
         """
 
         try:
-            self.setup()
+            self.setup_infra()
         except Exception as e:
             app_log.debug("Infrastructure deployment failed")
             app_log.error(e)
@@ -220,6 +220,7 @@ class EC2Executor(SSHExecutor):
 
         if not ssh_success:
             message = f"Could not connect to host '{self.hostname}' as user '{self.username}'"
+            return self._on_ssh_fail(function, args, kwargs, message)
         
         
         message = f"Executing node {node_id} on host {self.hostname}."
@@ -312,9 +313,10 @@ class EC2Executor(SSHExecutor):
         result_file = os.path.join(self.cache_dir, f"result_{operation_id}.pkl")
         scp.get(remote_result_file, result_file)
         app_log.warning(f"Location of Result file is {result_file}")
-
+        
         # Load the result file:
         with open(result_file, "rb") as f_in:
+            app_log.debug(f'Object in fn is {f_in}')
             result, exception = pickle.load(f_in)
 
         if exception is not None:
@@ -369,23 +371,28 @@ class EC2Executor(SSHExecutor):
                 "result = None",
                 "exception = None",
                 "",
+                "message = 'Result and exception initialized'",
                 "",
                 "try:",
                 "    import cloudpickle as pickle",
                 "except Exception as e:",
                 "    import pickle",
+                ""
                 f"    with open('{remote_result_file}','wb') as f_out:",
                 "        pickle.dump((None, e), f_out)",
                 "        exit()",
                 "",
                 f"with open('{remote_function_file}', 'rb') as f_in:",
+                ""
                 "    fn, args, kwargs = pickle.load(f_in)",
                 "    try:",
                 "        result = fn(*args, **kwargs)",
                 "    except Exception as e:",
-                "        exception = e",
+                "        exception = f' The function is {fn} and its Exception occured at line 387 with status {e}'",
+                
                 "",
                 f"with open('{remote_result_file}','wb') as f_out:",
+                "    "
                 "    pickle.dump((result, exception), f_out)",
                 "",
             ]
