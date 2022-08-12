@@ -69,27 +69,21 @@ resource "null_resource" "deps_install" {
   provisioner "remote-exec" {
 
     inline = [
-      "apt-get update",  # This is not allowed
       "echo 'Installing Conda'",
       "wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh",
       "sh ./Miniconda3-py38_4.12.0-Linux-x86_64.sh -b -p /home/ubuntu/miniconda3",
       "rm ./Miniconda3-py38_4.12.0-Linux-x86_64.sh",
-      "echo 'export PATH='/home/ubuntu/miniconda3/bin:$PATH'' >> ~/.bashrc ",
-      "source ~/.bashrc",
-      "/home/ubuntu/miniconda3/bin/conda init bash",
       "echo 'Installing Conda Environment'",
+      "/home/ubuntu/miniconda3/bin/conda init bash",
+      "source ~/.bashrc",
       "/home/ubuntu/miniconda3/bin/conda create -n covalent-dev python=3.8.13 -y",
-      "echo 'Activating Covalent Environment'",
-      "conda activate covalent-dev",
+      "echo 'conda activate covalent-dev' >> ~/.bashrc",
+      "source ~/.bashrc",
       "echo 'Installing Packages'",
-      "conda install -p /home/ubuntu/miniconda3/envs/covalent-dev cloudpickle=2.0.0 --file requirements.txt",
+      "conda install -p /home/ubuntu/miniconda3/envs/covalent-dev cloudpickle=2.0.0 -y",
       "Checking Python Path",
       "echo 'which python'",
-      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/pip install --pre covalent",
-      "echo 'Starting Covalent'",
-      "/home/ubuntu/miniconda3/bin/covalent-dev/bin/covalent purge -y",
-      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/covalent db migrate",
-      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/covalent start"
+      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/pip install --pre covalent"
     ]
 
   }
@@ -97,7 +91,7 @@ resource "null_resource" "deps_install" {
   connection {
     type = "ssh"
     user = "ubuntu"
-    private_key = file("/home/user/.ssh/test-pair.pem") # Path to a valid key file
+    private_key = file("/Users/okechukwuochia/.ssh/test-pair.pem") # Path to a valid key file
     host = aws_instance.covalent_svc_instance.public_ip
 
   }
