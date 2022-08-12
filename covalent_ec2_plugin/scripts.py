@@ -18,7 +18,6 @@
 #
 # Relief from the License may be granted by purchasing a commercial license.
 
-
 EXEC_SCRIPT = """
 import sys
 
@@ -29,18 +28,16 @@ try:
     import cloudpickle as pickle
 except Exception as e:
     import pickle
-
-with open('{remote_result_file}', 'wb') as f_out:
-    pickle.dump((None, e), f_out)
-    exit()
-
+    with open('{remote_result_file}','wb') as f_out:
+        pickle.dump((None, e), f_out)
+        exit()
 with open('{remote_function_file}', 'rb') as f_in:
     fn, args, kwargs = pickle.load(f_in)
     try:
         result = fn(*args, **kwargs)
     except Exception as e:
-        exception = f' The function is {fn} and its Exception occured at line 387 with status {e}
-
+        exception = e
 with open('{remote_result_file}','wb') as f_out:
     pickle.dump((result, exception), f_out)
+
 """

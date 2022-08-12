@@ -21,12 +21,10 @@
 """EC2 executor plugin for the Covalent dispatcher."""
 
 import os
-from socket import setdefaulttimeout
 import subprocess
-from multiprocessing import Queue as MPQ
-from time import sleep
 from typing import Any, Callable, Dict, List, Tuple
 
+# Executor-specific imports:
 import boto3
 import cloudpickle as pickle
 import paramiko
@@ -37,14 +35,14 @@ from covalent._shared_files import logger
 from covalent_ssh_plugin.ssh import SSHExecutor
 from scp import SCPClient
 
+# Scripts that are executed in the remote environment:
 from .scripts import EXEC_SCRIPT
+
+# The plugin class name must be given by the EXECUTOR_PLUGIN_NAME attribute:
+executor_plugin_name = "EC2Executor"
 
 app_log = logger.app_log
 log_stack_info = logger.log_stack_info
-
-# The plugin class name must be given by the EXECUTOR_PLUGIN_NAME attribute. In case this
-# module has more than one class defined, this lets Covalent know which is the executor class.
-executor_plugin_name = "EC2Executor"
 
 _EXECUTOR_PLUGIN_DEFAULTS = {
     "username": "ubuntu",
@@ -78,19 +76,19 @@ class EC2Executor(SSHExecutor):
     _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "infra"))
 
     def __init__(
-        self,
-        profile: str,
-        credentials_file: str,
-        key_file: str,
-        instance_type: str = "",
-        volume_size: str = "",
-        ami: str = "",
-        vpc: str = "",
-        subnet: str = "",
-        username: str = "ubuntu",
-        hostname: str = "",
-        remote_home_dir: str = "/home/ubuntu",
-        **kwargs,
+            self,
+            profile: str,
+            credentials_file: str,
+            key_file: str,
+            instance_type: str = "",
+            volume_size: str = "",
+            ami: str = "",
+            vpc: str = "",
+            subnet: str = "",
+            username: str = "ubuntu",
+            hostname: str = "",
+            remote_home_dir: str = "/home/ubuntu",
+            **kwargs,
     ) -> None:
         self.username = username
         self.hostname = hostname
@@ -157,7 +155,11 @@ class EC2Executor(SSHExecutor):
             True if connection to the instance was successful, False otherwise.
         """
 
-        self.get_hostname()
+        # Resolve hostname
+        try:
+            self.get_hostname()
+        except Exception as e:
+            app_log.error(e)
 
         ssh_success = False
         self.client = paramiko.SSHClient()
@@ -178,7 +180,7 @@ class EC2Executor(SSHExecutor):
 
         return ssh_success
 
-    async def run(self, function: Callable, args: List, kwargs: Dict, task_metadata: Dict) -> Any:
+    def run(self, function: Callable, args: List, kwargs: Dict, task_metadata: Dict) -> Any:
         """
         Invokes setup() and teardown() hooks and executes the workflow function on the instance
 
@@ -189,12 +191,17 @@ class EC2Executor(SSHExecutor):
         except Exception as e:
             app_log.debug("Infrastructure deployment failed")
             app_log.error(e)
-
         try:
             self.run_func(function=function, args=args, kwargs=kwargs, task_metadata=task_metadata)
         except Exception as e:
-            app_log.warning(f"Failed to run function {function}")
-            app_log.error(e)
+            app_log.debug(str(e))
+            app_log.error(f"Failed to run function {function}")
+
+        try:
+            self.teardown_infra()
+        except Exception as e:
+            app_log.debug("Infrastructure teardown failed")
+            app_log.error(str(e))
 
     def run_func(self, function: Callable, args: list, kwargs: dict, task_metadata: Dict) -> Any:
         """
@@ -216,18 +223,15 @@ class EC2Executor(SSHExecutor):
         exception = None
 
         ssh_success = self._client_connect()
-        
-        
-        app_log.warning("Status of connection:", ssh_success)
+
+        app_log.debug("Status of connection is:", ssh_success)
 
         if not ssh_success:
             message = f"Could not connect to host '{self.hostname}' as user '{self.username}'"
             return self._on_ssh_fail(function, args, kwargs, message)
-        
-        
+
         message = f"Executing node {node_id} on host {self.hostname}."
-        app_log.warning(message)
-        
+        app_log.debug(message)
 
         if self.python3_path == "":
             cmd = "which python3"
@@ -235,34 +239,29 @@ class EC2Executor(SSHExecutor):
             client_in, client_out, client_err = self.client.exec_command(cmd)
             exit_status = client_out.channel.recv_exit_status()
             cmd_output = client_out.read().decode("utf-8").strip()
-            if "python3" in cmd_output:
-                message = f"Python 3 is installed on host machine {self.hostname} at {cmd_output}"
-                app_log.warning(message)
-            else:
+            if "python3" not in cmd_output:
                 message = f"No Python 3 installation found on host machine {self.hostname}"
-                app_log.error(message)
-                
-        
+                return self._on_ssh_fail(function, args, kwargs, message)
+
         # Activate Conda env
-        cmd = "source /home/ubuntu/miniconda3/bin/activate covalent"
-        
+        activate_conda = f"{self.remote_home_dir}/miniconda3/bin/conda activate covalent-dev"
         self._client_connect()
-        client_in, client_out, client_err = self.client.exec_command(cmd)
+        client_in, client_out, client_err = self.client.exec_command(activate_conda)
         exit_status = client_out.channel.recv_exit_status()
         cmd_output = client_out.read().decode("utf-8").strip()
-        if str(exit_status) == "0":
-            app_log.warning(f"Conda activated successfully with {exit_status}")
+        if exit_status == 0:
+            app_log.debug(f"Conda activated successfully with status {exit_status}")
         else:
             message = f"Conda activation failed on {self.hostname} with {exit_status}"
             app_log.error(message)
-        
+
         cmd = f"mkdir -p {self.remote_cache_dir}"
 
         try:
             result = self.client.exec_command(cmd)
 
         except Exception as e:
-            app_log.error(e)
+            app_log.debug(e)
 
         # Pickle and save location of the function and its arguments:
         (
@@ -279,18 +278,18 @@ class EC2Executor(SSHExecutor):
 
         # Run the function:
         try:
-            cmd = f"/home/ubuntu/miniconda3/envs/covalent/bin/python3 {remote_script_file}"
+            cmd = f"{self.remote_home_dir}/miniconda3/bin/python3 {remote_script_file}"
             self._client_connect()
             stdin, stdout, stderr = self.client.exec_command(cmd)
             exit_status = stdout.channel.recv_exit_status()
             if exit_status == 0:
                 app_log.warning(f"Execution of {remote_script_file} was completed")
             else:
-                app_log.error(
+                app_log.debug(
                     f"Failed to execute {remote_script_file} on host {self.hostname} with exit status {exit_status}"
                 )
         except Exception as e:
-            app_log.error(e)
+            app_log.debug(e)
 
         # # Check that a result file was produced:
         # cmd = f"ls {remote_result_file}"
@@ -302,20 +301,19 @@ class EC2Executor(SSHExecutor):
         #     message = (
         #         f"Result file {remote_result_file} on remote host {self.hostname} was not found"
         #     )
-            
+
         #     return self._on_ssh_fail(function, args, kwargs, message)
         # else:
         #     message = (
         #         f"Result file {remote_result_file} was found on host {self.hostname} in the directory {cmd_output}"
         #     )
         #     app_log.warning(f"Path to remote result file is {remote_result_file}")
-            
 
         # scp the pickled result to the local machine here:
         result_file = os.path.join(self.cache_dir, f"result_{operation_id}.pkl")
         scp.get(remote_result_file, result_file)
-        app_log.warning(f"Location of Result file is {result_file}")
-        
+        app_log.debug(f"Location of Result file is {result_file}")
+
         # Load the result file:
         with open(result_file, "rb") as f_in:
             app_log.debug(f'Object in fn is {f_in}')
@@ -329,11 +327,11 @@ class EC2Executor(SSHExecutor):
         return result
 
     def _write_function_files(
-        self,
-        operation_id: str,
-        fn: Callable,
-        args: list,
-        kwargs: dict,
+            self,
+            operation_id: str,
+            fn: Callable,
+            args: list,
+            kwargs: dict,
     ) -> Tuple:
         """
         Helper function to pickle the function to be executed to file, and write the
@@ -346,12 +344,15 @@ class EC2Executor(SSHExecutor):
             args: List of positional arguments to be used by the function.
             kwargs: Dictionary of keyword arguments to be used by the function.
         """
+        app_log.debug(f"Inside write_function_files()")
 
         # Pickle and save location of the function and its arguments:
         function_file = os.path.join(self.cache_dir, f"function_{operation_id}.pkl")
 
         with open(function_file, "wb") as f_out:
             pickle.dump((fn, args, kwargs), f_out)
+
+        app_log.debug("Pickle dump in write_function_files() succeeded")
 
         remote_function_file = os.path.join(
             self.remote_home_dir, self.remote_cache_dir, f"function_{operation_id}.pkl"
@@ -361,13 +362,15 @@ class EC2Executor(SSHExecutor):
 
         message = f"Function file names:\nLocal function file: {function_file}\n"
         message += f"Remote function file: {remote_function_file}"
-        app_log.warning(message)
+        app_log.debug(message)
 
         remote_result_file = os.path.join(
             self.remote_home_dir, self.remote_cache_dir, f"result_{operation_id}.pkl"
         )
         script_file = os.path.join(self.cache_dir, f"exec_{operation_id}.py")
         remote_script_file = os.path.join(self.remote_cache_dir, f"exec_{operation_id}.py")
+        app_log.debug("Dumping exec_script")
+
         with open(script_file, "w") as f_out:
             f_out.write(
                 EXEC_SCRIPT.format(
@@ -375,7 +378,7 @@ class EC2Executor(SSHExecutor):
                     remote_function_file=remote_function_file
                 )
             )
-
+        app_log.debug("Dumping exec_script succeeded")
         return (
             function_file,
             script_file,

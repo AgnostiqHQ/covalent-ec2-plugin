@@ -70,8 +70,6 @@ resource "null_resource" "deps_install" {
 
     inline = [
       "apt-get update",
-      "echo 'Installing cloudpickle for shell-level imports'",
-      "python3 -m pip install cloudpickle",
       "echo 'Installing Conda'",
       "wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh",
       "sh ./Miniconda3-py38_4.12.0-Linux-x86_64.sh -b -p /home/ubuntu/miniconda3",
@@ -79,13 +77,19 @@ resource "null_resource" "deps_install" {
       "echo 'export PATH='/home/ubuntu/miniconda3/bin:$PATH'' >> ~/.bashrc ",
       "source ~/.bashrc",
       "/home/ubuntu/miniconda3/bin/conda init bash",
-      "echo 'Activating Conda environment'",
-      "/home/ubuntu/miniconda3/bin/conda create -y -n covalent python=3.8",
-      "/home/ubuntu/miniconda3/bin/conda activate covalent",
-      "/home/ubuntu/miniconda3/bin/pip install --pre covalent",
+      "echo 'Installing Conda Environment'",
+      "/home/ubuntu/miniconda3/bin/conda create -n covalent-dev python=3.8.13 -y",
+      "echo 'Activating Covalent Environment'",
+      "conda activate covalent-dev",
+      "echo 'Installing Packages'",
+      "conda install -p /home/ubuntu/miniconda3/envs/covalent-dev cloudpickle=2.0.0 --file requirements.txt",
+      "Checking Python Path",
+      "echo 'which python'",
+      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/pip install --pre covalent",
       "echo 'Starting Covalent'",
-      "/home/ubuntu/miniconda3/bin/covalent db migrate",
-      "/home/ubuntu/miniconda3/bin/covalent start"
+      "/home/ubuntu/miniconda3/bin/covalent-dev/bin/covalent purge -y",
+      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/covalent db migrate",
+      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/covalent start"
     ]
 
   }
