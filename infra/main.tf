@@ -69,7 +69,7 @@ resource "null_resource" "deps_install" {
   provisioner "remote-exec" {
 
     inline = [
-      "apt-get update",
+      "apt-get update",  # This is not allowed
       "echo 'Installing Conda'",
       "wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh",
       "sh ./Miniconda3-py38_4.12.0-Linux-x86_64.sh -b -p /home/ubuntu/miniconda3",

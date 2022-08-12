@@ -85,9 +85,9 @@ class EC2Executor(SSHExecutor):
             ami: str = "",
             vpc: str = "",
             subnet: str = "",
-            username: str = "ubuntu",
+            username: str = "ubuntu",  # TODO - Is this required? Probably not
             hostname: str = "",
-            remote_home_dir: str = "/home/ubuntu",
+            remote_home_dir: str = "/home/ubuntu",  # TODO - Is this required? Probably not
             **kwargs,
     ) -> None:
         self.username = username
@@ -104,18 +104,23 @@ class EC2Executor(SSHExecutor):
         self.kwargs = kwargs
         super().__init__(username, hostname, **kwargs)
 
+    # TODO - Revert back to `setup` - and this method should not be called from the child class but rather the parent Base class's run method`
     def setup_infra(self) -> None:
         """
         Invokes Terraform to provision supporting resources for the instance
 
         """
         try:
-            subprocess.run(["terraform", "init"], cwd=self._TF_DIR)
-            subprocess.run(["terraform", "apply", "-auto-approve=true", "-lock=false"], cwd=self._TF_DIR)
+            subprocess.run(["terraform", "init"], cwd=self._TF_DIR)  # TODO - No variables are being passed. Why? A lot of hard coded information
+            subprocess.run(["terraform", "apply", "-auto-approve=true", "-lock=false"], cwd=self._TF_DIR)  # TODO - No variables are being passed. Why? A lot of hard coded information
 
         except subprocess.SubprocessError as se:
+
+            # TODO - Should be checking the exit code using proc = subprocess.exitCode (something like that) - examples through the code base
             app_log.debug("Failed to deploy infrastructure")
             app_log.error(se)
+
+        # TODO - Terraform is going to create state files - currently these are going into the site packages (but probably not even bcs the packaging might not be happening properly) but they should be going into the cache directory.
 
     def teardown_infra(self) -> None:
         """
@@ -134,6 +139,7 @@ class EC2Executor(SSHExecutor):
 
         """
 
+        # TODO - The strategy for this method needs to be overhauled - Take the output from the setup method and parse the hostname information that terraform is returning.
         if not self.hostname:
             client = boto3.Session(profile_name=self.profile).client("ec2")
             ec2_client = client.describe_instances()
@@ -144,6 +150,8 @@ class EC2Executor(SSHExecutor):
                     if instance["KeyName"] == key_name and instance["State"]["Name"] == "running":
                         self.hostname = instance["PublicDnsName"]
 
+
+    # TODO - This method is not needed: The entire point of inheriting from the SSH super class is not to have to use this synchronous method
     def _client_connect(self) -> bool:
         """
         Helper function for connecting to the instance through the paramiko module.
@@ -180,6 +188,8 @@ class EC2Executor(SSHExecutor):
 
         return ssh_success
 
+
+    # TODO - Unnecessary since this is already done with the Base execute method if setup and teardown method are defined.
     def run(self, function: Callable, args: List, kwargs: Dict, task_metadata: Dict) -> Any:
         """
         Invokes setup() and teardown() hooks and executes the workflow function on the instance
@@ -203,6 +213,7 @@ class EC2Executor(SSHExecutor):
             app_log.debug("Infrastructure teardown failed")
             app_log.error(str(e))
 
+    # TODO - Also unnecessary, the super class's run method makes writing this redundant.
     def run_func(self, function: Callable, args: list, kwargs: dict, task_metadata: Dict) -> Any:
         """
         Runs the workflow function on the instance and returns the result.
