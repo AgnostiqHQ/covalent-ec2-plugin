@@ -38,12 +38,6 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"]
 }
 
-resource "aws_iam_instance_profile" "ec2" {
-  name = "ec2"
-  role = aws_iam_role.covalent_iam_role.name
-}
-
-
 resource "aws_instance" "covalent_svc_instance" {
 
   ami           = data.aws_ami.ubuntu.id
@@ -54,7 +48,6 @@ resource "aws_instance" "covalent_svc_instance" {
   associate_public_ip_address = true
 
   key_name             = "test-pair" # Name of a valid key file
-  iam_instance_profile = aws_iam_instance_profile.ec2.name
   monitoring           = true
 
   root_block_device {
