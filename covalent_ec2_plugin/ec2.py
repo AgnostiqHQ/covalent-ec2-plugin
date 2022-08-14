@@ -33,6 +33,7 @@ import paramiko
 from covalent._results_manager.result import Result
 from covalent._shared_files import logger
 from covalent_ssh_plugin.ssh import SSHExecutor
+from covalent_ssh_plugin.ssh import _EXECUTOR_PLUGIN_DEFAULTS as _SSH_EXECUTOR_PLUGIN_DEFAULTS
 from scp import SCPClient
 
 # Scripts that are executed in the remote environment:
@@ -45,19 +46,14 @@ app_log = logger.app_log
 log_stack_info = logger.log_stack_info
 
 _EXECUTOR_PLUGIN_DEFAULTS = {
-    "username": "ubuntu",
-    "key_file": "",
+    "profile": "default",
+    "credentials_file": "",
     "instance_type": "t2.micro",
     "volume_size": "8GiB",
-    "ami": "amzn-ami-hvm-*-x86_64-gp2",
     "vpc": "",
     "subnet": "",
-    "profile": os.environ.get("AWS_PROFILE") or "default",
-    "credentials_file": os.path.join(os.environ["HOME"], ".aws/credentials"),
-    "cache_dir": os.path.join(
-        os.environ.get("XDG_CACHE_HOME") or os.path.join(os.environ["HOME"], ".cache"), "covalent"
-    ),
 }
+_EXECUTOR_PLUGIN_DEFAULTS.update(_SSH_EXECUTOR_PLUGIN_DEFAULTS)
 
 
 class EC2Executor(SSHExecutor):
@@ -68,11 +64,9 @@ class EC2Executor(SSHExecutor):
         profile: The name of the AWS profile
         credentials_file: Filename of the credentials file used for authentication to AWS.
         key_file: Filename of the private key used for authentication with the remote server if it exists.
-        run_local_on_ec2_fail: If True, and the execution fails to run on the instance,
-            then the execution is run on the local machine.
-        _TF_DIR: The directory containing Terraform configuration files
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
+
     _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "infra"))
 
     def __init__(
@@ -85,6 +79,7 @@ class EC2Executor(SSHExecutor):
         subnet: str = "",
         **kwargs,
     ) -> None:
+        # TODO: Read from config if value are not passed in the contructor
         self.profile = profile
         self.credentials_file = credentials_file
         self.instance_type = instance_type,
@@ -102,14 +97,13 @@ class EC2Executor(SSHExecutor):
         if proc.returncode != 0:
             raise Exception(proc.stderr.decode("utf-8").strip())
 
-        state_dir = os.path.join(self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}")
-        os.mkdir(state_dir)
+        state_file = os.path.join(self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate")
 
         base_cmd = [
             "terraform",
             "apply",
             "-auto-approve",
-            f"-state={state_dir}",
+            f"-state={state_file}",
         ]
 
         infra_vars = [
@@ -153,7 +147,7 @@ class EC2Executor(SSHExecutor):
                 "terraform",
                 "output",
                 "-raw",
-                f"-state={state_dir}",
+                f"-state={state_file}",
                 "hostname"
             ],
             cwd=self._TF_DIR,
@@ -168,7 +162,7 @@ class EC2Executor(SSHExecutor):
                 "terraform",
                 "output",
                 "-raw",
-                f"-state={state_dir}",
+                f"-state={state_file}",
                 "username"
             ],
             cwd=self._TF_DIR,
@@ -178,13 +172,25 @@ class EC2Executor(SSHExecutor):
             raise Exception(proc.stderr.decode("utf-8").strip())
         self.username = proc.stdout.decode("utf-8").strip()
 
-    def teardown_infra(self) -> None:
+    def teardown(self, task_metadata: Dict) -> None:
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
-        try:
-            subprocess.run(["terraform", "destroy", "-auto-approve=true", "-lock=false"], cwd=self._TF_DIR)
+        
+        state_file = os.path.join(self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate")
 
-        except subprocess.SubprocessError as se:
-            app_log.debug("Failed to destroy infrastructure")
-            app_log.error(se)
+        if not os.path.exists(state_file):
+            raise FileNotFoundError(f"Could not find Terraform state file: {state_dir}. Infrastructure may need to be manually deprovisioned.")
+
+        proc = subprocess.run(
+            [
+                "terraform",
+                "destroy",
+                "-auto-approve",
+                f"-state={state_file}"
+            ],
+            cwd=self._TF_DIR,
+            capture_output=True
+        )
+        if proc.returncode != 0:
+            raise Exception(proc.stderr.decode("utf-8").strip())
