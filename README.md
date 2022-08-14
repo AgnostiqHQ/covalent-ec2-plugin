@@ -2,10 +2,7 @@
 
 <div align="center">
 
-![covalent-ec2-plugin logo](https://github.com/AgnostiqHQ/covalent-ec2-plugin/blob/base-setup/assets/aws_ec2.jpg#gh-dark-mode-only)
-![covalent-ec2-plugin logo](https://github.com/AgnostiqHQ/covalent-ec2-plugin/blob/base-setup/assets/aws_ec2.jpg#gh-light-mode-only)
-
-&nbsp;
+<img src="https://raw.githubusercontent.com/AgnostiqHQ/covalent-ec2-plugin/main/assets/ec2_readme_banner.jpg" width=150%>
 
 </div>
 
