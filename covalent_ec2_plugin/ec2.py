@@ -24,15 +24,10 @@ import os
 import subprocess
 from typing import Any, Callable, Dict, List, Tuple
 
-# Covalent imports
 from covalent._shared_files import logger
 from covalent_ssh_plugin.ssh import SSHExecutor
 from covalent_ssh_plugin.ssh import _EXECUTOR_PLUGIN_DEFAULTS as _SSH_EXECUTOR_PLUGIN_DEFAULTS
 
-# Scripts that are executed in the remote environment:
-from .scripts import EXEC_SCRIPT
-
-# The plugin class name must be given by the EXECUTOR_PLUGIN_NAME attribute:
 executor_plugin_name = "EC2Executor"
 
 app_log = logger.app_log
