@@ -24,8 +24,13 @@ variable "name" {
 }
 
 variable "aws_region" {
-    default = "us-east-1"
-    description = "Region where resources for the EC2 plugin are deployed"
+  default     = "us-east-1"
+  description = "Region where resources for the EC2 plugin are deployed"
+}
+
+variable "aws_profile" {
+  default     = "default"
+  description = "AWS profile used when authenticating"
 }
 
 variable "vpc_id" {
@@ -51,4 +56,9 @@ variable "instance_type" {
 variable "disk_size" {
   default     = 32
   description = "Server disk size"
+}
+
+variable "key_file" {
+  default     = ""
+  description = "Private key used for SSH provisioner"
 }

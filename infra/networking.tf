@@ -39,27 +39,27 @@ module "vpc" {
 }
 
 data "http" "myip" {
-    url = "https://ipv4.icanhazip.com"
+  url = "https://ipv4.icanhazip.com"
 }
 
 resource "aws_security_group" "covalent_firewall" {
-  name = "covalent_firewall"
+  name        = "covalent_firewall"
   description = "Allow traffic to Covalent server"
-  vpc_id = "${var.vpc_id == "" ? module.vpc.vpc_id : var.vpc_id}"
+  vpc_id      = var.vpc_id == "" ? module.vpc.vpc_id : var.vpc_id
 
   ingress {
     description = "Allow SSH Access"
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
     cidr_blocks = ["${chomp(data.http.myip.body)}/32"]
-    }
+  }
 
   egress {
-      description = "Allow all outbound traffic"
-      from_port = 0
-      to_port = 0
-      protocol = "-1"
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    }
+  }
 }

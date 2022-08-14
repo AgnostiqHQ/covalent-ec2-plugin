@@ -19,15 +19,19 @@
 # Relief from the License may be granted by purchasing a commercial license.
 
 provider "aws" {
-    profile = "default"
-    region = var.aws_region
+  profile = var.aws_profile
+  region  = var.aws_region
+}
+
+locals {
+  username = "ubuntu"
 }
 
 data "aws_ami" "ubuntu" {
   most_recent = true
 
   filter {
-    name = "name"
+    name   = "name"
     values = ["ubuntu-minimal/images/hvm-ssd/ubuntu-focal-20.04-amd64-minimal-*"]
   }
 
@@ -42,16 +46,16 @@ resource "aws_iam_instance_profile" "ec2" {
 
 resource "aws_instance" "covalent_svc_instance" {
 
-  ami = data.aws_ami.ubuntu.id
+  ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
 
-  vpc_security_group_ids = [aws_security_group.covalent_firewall.id]
-  subnet_id = "${var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id}"
+  vpc_security_group_ids      = [aws_security_group.covalent_firewall.id]
+  subnet_id                   = var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id
   associate_public_ip_address = true
 
-  key_name = "test-pair"  # Name of a valid key file
+  key_name             = "test-pair" # Name of a valid key file
   iam_instance_profile = aws_iam_instance_profile.ec2.name
-  monitoring = true
+  monitoring           = true
 
   root_block_device {
     volume_type = "gp2"
@@ -61,13 +65,10 @@ resource "aws_instance" "covalent_svc_instance" {
   tags = {
     "Name" = var.name
   }
-
 }
 
 resource "null_resource" "deps_install" {
-
   provisioner "remote-exec" {
-
     inline = [
       "echo 'Installing Conda'",
       "wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh",
@@ -85,15 +86,12 @@ resource "null_resource" "deps_install" {
       "echo 'which python'",
       "/home/ubuntu/miniconda3/envs/covalent-dev/bin/pip install --pre covalent"
     ]
-
   }
 
   connection {
-    type = "ssh"
-    user = "ubuntu"
-    private_key = file("/Users/okechukwuochia/.ssh/test-pair.pem") # Path to a valid key file
-    host = aws_instance.covalent_svc_instance.public_ip
-
+    type        = "ssh"
+    user        = local.username
+    private_key = file(var.key_file) # Path to a valid key file
+    host        = aws_instance.covalent_svc_instance.public_ip
   }
-
 }

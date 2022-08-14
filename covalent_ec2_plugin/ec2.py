@@ -102,21 +102,32 @@ class EC2Executor(SSHExecutor):
         if proc.returncode != 0:
             raise Exception(proc.stderr.decode("utf-8").strip())
 
+        state_dir = os.path.join(self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}")
+        os.mkdir(state_dir)
+
         base_cmd = [
             "terraform",
             "apply",
             "-auto-approve",
-            f"-state={self.cache_dir}",
+            f"-state={state_dir}",
         ]
 
         infra_vars = [
-            "-var='name=covalent-task-{dispatch_id}-{node_id}'".format(dispatch_id=task_metadata["dispatch_id"], node_id=task_metadata["node_id"]),
+            "-var='name=covalent-task-{dispatch_id}-{node_id}'".format(
+                dispatch_id=task_metadata["dispatch_id"], 
+                node_id=task_metadata["node_id"]
+            ),
             f"-var='instance_type={self.instance_type}'",
             f"-var='disk_size={self.volume_size}'",
+            f"-var='key_file={self.ssh_key_file}'",
         ]
         if os.environ["AWS_REGION"]:
             infra_vars += [
                 "-var='aws_region={region}'".format(region=os.environ["AWS_REGION"])
+            ]
+        if self.profile:
+            infra_vars += [
+                "-var='aws_profile={self.profile}'"
             ]
         if self.vpc:
             infra_vars += [
@@ -137,6 +148,36 @@ class EC2Executor(SSHExecutor):
         if proc.returncode != 0:
             raise Exception(proc.stderr.decode("utf-8").strip())
 
+        proc = subprocess.run(
+            [
+                "terraform",
+                "output",
+                "-raw",
+                f"-state={state_dir}",
+                "hostname"
+            ],
+            cwd=self._TF_DIR,
+            capture_output=True
+        )
+        if proc.returncode != 0:
+            raise Exception(proc.stderr.decode("utf-8").strip())
+        self.hostname = proc.stdout.decode("utf-8").strip()
+
+        proc = subprocess.run(
+            [
+                "terraform",
+                "output",
+                "-raw",
+                f"-state={state_dir}",
+                "username"
+            ],
+            cwd=self._TF_DIR,
+            capture_output=True
+        )
+        if proc.returncode != 0:
+            raise Exception(proc.stderr.decode("utf-8").strip())
+        self.username = proc.stdout.decode("utf-8").strip()
+
     def teardown_infra(self) -> None:
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
@@ -147,24 +188,6 @@ class EC2Executor(SSHExecutor):
         except subprocess.SubprocessError as se:
             app_log.debug("Failed to destroy infrastructure")
             app_log.error(se)
-
-    def get_hostname(self) -> None:
-        """
-        Resolves the hostname of the instance
-
-        """
-
-        # TODO - The strategy for this method needs to be overhauled - Take the output from the setup method and parse the hostname information that terraform is returning.
-        if not self.hostname:
-            client = boto3.Session(profile_name=self.profile).client("ec2")
-            ec2_client = client.describe_instances()
-            key_name = self.key_file.split("/")[-1].split(".")[0]
-
-            for instances in ec2_client["Reservations"]:
-                for instance in instances["Instances"]:
-                    if instance["KeyName"] == key_name and instance["State"]["Name"] == "running":
-                        self.hostname = instance["PublicDnsName"]
-
 
     # TODO - This method is not needed: The entire point of inheriting from the SSH super class is not to have to use this synchronous method
     def _client_connect(self) -> bool:
@@ -177,12 +200,6 @@ class EC2Executor(SSHExecutor):
         Returns:
             True if connection to the instance was successful, False otherwise.
         """
-
-        # Resolve hostname
-        try:
-            self.get_hostname()
-        except Exception as e:
-            app_log.error(e)
 
         ssh_success = False
         self.client = paramiko.SSHClient()
