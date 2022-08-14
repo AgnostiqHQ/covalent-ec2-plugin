@@ -76,51 +76,66 @@ class EC2Executor(SSHExecutor):
     _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "infra"))
 
     def __init__(
-            self,
-            profile: str,
-            credentials_file: str,
-            key_file: str,
-            instance_type: str = "",
-            volume_size: str = "",
-            ami: str = "",
-            vpc: str = "",
-            subnet: str = "",
-            username: str = "ubuntu",  # TODO - Is this required? Probably not
-            hostname: str = "",
-            remote_home_dir: str = "/home/ubuntu",  # TODO - Is this required? Probably not
-            **kwargs,
+        self,
+        profile: str,
+        credentials_file: str,
+        instance_type: str = "",
+        volume_size: str = "",
+        vpc: str = "",
+        subnet: str = "",
+        **kwargs,
     ) -> None:
-        self.username = username
-        self.hostname = hostname
-        self.instance_type = instance_type,
-        self.volume_size = volume_size,
-        self.ami = ami,
-        self.vpc = vpc,
-        self.subnet = subnet,
-        self.remote_home_dir = remote_home_dir
         self.profile = profile
         self.credentials_file = credentials_file
-        self.key_file = key_file
-        self.kwargs = kwargs
-        super().__init__(username, hostname, **kwargs)
+        self.instance_type = instance_type,
+        self.volume_size = volume_size,
+        self.vpc = vpc,
+        self.subnet = subnet,
+        super().__init__(username="", hostname="", **kwargs)
 
-    # TODO - Revert back to `setup` - and this method should not be called from the child class but rather the parent Base class's run method`
-    def setup_infra(self) -> None:
+    def setup(self, task_metadata: Dict) -> None:
         """
         Invokes Terraform to provision supporting resources for the instance
 
         """
-        try:
-            subprocess.run(["terraform", "init"], cwd=self._TF_DIR)  # TODO - No variables are being passed. Why? A lot of hard coded information
-            subprocess.run(["terraform", "apply", "-auto-approve=true", "-lock=false"], cwd=self._TF_DIR)  # TODO - No variables are being passed. Why? A lot of hard coded information
+        proc = subprocess.run(["terraform", "init"], cwd=self._TF_DIR, capture_output=True)
+        if proc.returncode != 0:
+            raise Exception(proc.stderr.decode("utf-8").strip())
 
-        except subprocess.SubprocessError as se:
+        base_cmd = [
+            "terraform",
+            "apply",
+            "-auto-approve",
+            f"-state={self.cache_dir}",
+        ]
 
-            # TODO - Should be checking the exit code using proc = subprocess.exitCode (something like that) - examples through the code base
-            app_log.debug("Failed to deploy infrastructure")
-            app_log.error(se)
+        infra_vars = [
+            "-var='name=covalent-task-{dispatch_id}-{node_id}'".format(dispatch_id=task_metadata["dispatch_id"], node_id=task_metadata["node_id"]),
+            f"-var='instance_type={self.instance_type}'",
+            f"-var='disk_size={self.volume_size}'",
+        ]
+        if os.environ["AWS_REGION"]:
+            infra_vars += [
+                "-var='aws_region={region}'".format(region=os.environ["AWS_REGION"])
+            ]
+        if self.vpc:
+            infra_vars += [
+                f"-var='vpc_id={self.vpc}'"
+            ]
+        if self.subnet:
+            infra_vars += [
+                f"-var='subnet_id={self.subnet}'"
+            ]
 
-        # TODO - Terraform is going to create state files - currently these are going into the site packages (but probably not even bcs the packaging might not be happening properly) but they should be going into the cache directory.
+        cmd = base_cmd + infra_vars
+
+        proc = subprocess.run(
+            cmd,
+            cwd=self._TF_DIR, 
+            capture_output=True
+        )
+        if proc.returncode != 0:
+            raise Exception(proc.stderr.decode("utf-8").strip())
 
     def teardown_infra(self) -> None:
         """
