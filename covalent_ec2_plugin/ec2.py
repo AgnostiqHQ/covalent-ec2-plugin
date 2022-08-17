@@ -63,7 +63,7 @@ class EC2Executor(SSHExecutor):
         profile: str,
         credentials_file: str,
         instance_type: str = "",
-        volume_size: str = "",
+        volume_size: int = 32,
         vpc: str = "",
         subnet: str = "",
         **kwargs,
@@ -75,9 +75,9 @@ class EC2Executor(SSHExecutor):
         self.volume_size = volume_size,
         self.vpc = vpc,
         self.subnet = subnet,
-        super().__init__(username="", hostname="", **kwargs)
+        super().__init__(**kwargs)
 
-    def setup(self, task_metadata: Dict) -> None:
+    async def setup(self, task_metadata: Dict) -> None:
         """
         Invokes Terraform to provision supporting resources for the instance
 
@@ -96,33 +96,34 @@ class EC2Executor(SSHExecutor):
         ]
 
         infra_vars = [
-            "-var='name=covalent-task-{dispatch_id}-{node_id}'".format(
+            "-var=name=covalent-task-{dispatch_id}-{node_id}".format(
                 dispatch_id=task_metadata["dispatch_id"], 
                 node_id=task_metadata["node_id"]
             ),
-            f"-var='instance_type={self.instance_type}'",
-            f"-var='disk_size={self.volume_size}'",
-            f"-var='key_file={self.ssh_key_file}'",
+            f"-var=instance_type={self.instance_type}",
+            f"-var=disk_size=32",
+            f"-var=key_file={self.ssh_key_file}",
         ]
         if os.environ["AWS_REGION"]:
             infra_vars += [
-                "-var='aws_region={region}'".format(region=os.environ["AWS_REGION"])
+                "-var=aws_region={region}".format(region=os.environ["AWS_REGION"])
             ]
         if self.profile:
             infra_vars += [
-                "-var='aws_profile={self.profile}'"
+                f"-var=aws_profile={self.profile}"
             ]
         if self.vpc:
             infra_vars += [
-                f"-var='vpc_id={self.vpc}'"
+                f"-var=vpc_id={self.vpc}"
             ]
         if self.subnet:
             infra_vars += [
-                f"-var='subnet_id={self.subnet}'"
+                f"-var=subnet_id={self.subnet}"
             ]
 
         cmd = base_cmd + infra_vars
 
+        app_log.debug(f'Infra vars are {infra_vars}')
         proc = subprocess.run(
             cmd,
             cwd=self._TF_DIR, 
@@ -161,7 +162,7 @@ class EC2Executor(SSHExecutor):
             raise Exception(proc.stderr.decode("utf-8").strip())
         self.username = proc.stdout.decode("utf-8").strip()
 
-    def teardown(self, task_metadata: Dict) -> None:
+    async def teardown(self, task_metadata: Dict) -> None:
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
@@ -169,7 +170,7 @@ class EC2Executor(SSHExecutor):
         state_file = os.path.join(self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate")
 
         if not os.path.exists(state_file):
-            raise FileNotFoundError(f"Could not find Terraform state file: {state_dir}. Infrastructure may need to be manually deprovisioned.")
+            raise FileNotFoundError(f"Could not find Terraform state file: {state_file}. Infrastructure may need to be manually deprovisioned.")
 
         proc = subprocess.run(
             [

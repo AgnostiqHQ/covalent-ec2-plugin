@@ -24,7 +24,7 @@ variable "name" {
 }
 
 variable "aws_region" {
-  default     = "us-east-1"
+  default     = "ca-central-1"
   description = "Region where resources for the EC2 plugin are deployed"
 }
 
@@ -54,8 +54,9 @@ variable "instance_type" {
 }
 
 variable "disk_size" {
-  default     = 32
+  default     = "32"
   description = "Server disk size"
+  type = string
 }
 
 variable "key_file" {
