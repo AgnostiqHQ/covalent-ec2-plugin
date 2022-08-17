@@ -66,7 +66,8 @@ resource "null_resource" "deps_install" {
     inline = [
       "echo 'Installing Conda'",
       "wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh",
-      "sh ./Miniconda3-py38_4.12.0-Linux-x86_64.sh -b -p /home/ubuntu/miniconda3",
+      "chmod +x Miniconda3-py38_4.12.0-Linux-x86_64.sh",
+      "./Miniconda3-py38_4.12.0-Linux-x86_64.sh -b -p ~/miniconda3",
       "rm ./Miniconda3-py38_4.12.0-Linux-x86_64.sh",
       "echo 'Installing Conda Environment'",
       "/home/ubuntu/miniconda3/bin/conda init bash",
@@ -74,11 +75,8 @@ resource "null_resource" "deps_install" {
       "/home/ubuntu/miniconda3/bin/conda create -n covalent-dev python=3.8.13 -y",
       "echo 'conda activate covalent-dev' >> ~/.bashrc",
       "source ~/.bashrc",
-      "echo 'Installing Packages'",
-      "conda install -p /home/ubuntu/miniconda3/envs/covalent-dev cloudpickle=2.0.0 -y",
-      "Checking Python Path",
       "echo 'which python'",
-      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/pip install --pre covalent"
+      "pip install --pre covalent",
     ]
   }
 
