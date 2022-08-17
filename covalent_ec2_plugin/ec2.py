@@ -63,8 +63,8 @@ class EC2Executor(SSHExecutor):
     def __init__(
         self,
         profile: str,
-        credentials_file: str,
         key_name: str = "",
+        credentials_file: str = "",
         instance_type: str = "t2.micro",
         volume_size: int = 8,
         vpc: str = "",
@@ -72,14 +72,18 @@ class EC2Executor(SSHExecutor):
         **kwargs,
     ) -> None:
         # TODO: Read from config if value are not passed in the contructor
+        super().__init__(**kwargs)
+        
         self.profile = profile
         self.credentials_file = str(Path(credentials_file).expanduser().resolve())
-        self.key_name = key_name
+        
+        # Default key_name the private key's filename
+        self.key_name = key_name or self.ssh_key_file.split("/")[-1].split(".")[0]
+
         self.instance_type = instance_type
         self.volume_size = volume_size
         self.vpc = vpc
         self.subnet = subnet
-        super().__init__(**kwargs)
 
     async def setup(self, task_metadata: Dict) -> None:
         """
@@ -108,6 +112,7 @@ class EC2Executor(SSHExecutor):
             f"-var=instance_type={self.instance_type}",
             f"-var=disk_size={self.volume_size}",
             f"-var=key_file={self.ssh_key_file}",
+            f"-var=key_name={self.key_name}",
         ]
 
         if os.environ.get("AWS_REGION"):
@@ -123,11 +128,6 @@ class EC2Executor(SSHExecutor):
         if self.credentials_file:
             infra_vars += [
                 f"-var=aws_credentials={self.credentials_file}"
-            ]
-
-        if self.key_name:
-            infra_vars += [
-                f"-var=key_name={self.key_name}"
             ]
 
         if self.vpc:
@@ -182,7 +182,7 @@ class EC2Executor(SSHExecutor):
             capture_output=True
         )
         if proc.returncode != 0:
-            raise Exception(proc.stderr.decode("utf-8").strip())
+            raise RuntimeError(proc.stderr.decode("utf-8").strip())
         self.username = proc.stdout.decode("utf-8").strip()
 
     async def teardown(self, task_metadata: Dict) -> None:
@@ -206,4 +206,4 @@ class EC2Executor(SSHExecutor):
             capture_output=True
         )
         if proc.returncode != 0:
-            raise Exception(proc.stderr.decode("utf-8").strip())
+            raise RuntimeError(proc.stderr.decode("utf-8").strip())
