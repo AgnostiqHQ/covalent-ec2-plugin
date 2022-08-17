@@ -20,9 +20,11 @@
 
 """EC2 executor plugin for the Covalent dispatcher."""
 
+
 import os
 import subprocess
 from typing import Any, Callable, Dict, List, Tuple
+from pathlib import Path
 
 from covalent._shared_files import logger
 from covalent_ssh_plugin.ssh import SSHExecutor
@@ -62,19 +64,21 @@ class EC2Executor(SSHExecutor):
         self,
         profile: str,
         credentials_file: str,
-        instance_type: str = "",
-        volume_size: int = 32,
+        key_name: str = "",
+        instance_type: str = "t2.micro",
+        volume_size: int = 8,
         vpc: str = "",
         subnet: str = "",
         **kwargs,
     ) -> None:
         # TODO: Read from config if value are not passed in the contructor
         self.profile = profile
-        self.credentials_file = credentials_file
-        self.instance_type = instance_type,
-        self.volume_size = volume_size,
-        self.vpc = vpc,
-        self.subnet = subnet,
+        self.credentials_file = str(Path(credentials_file).expanduser().resolve())
+        self.key_name = key_name
+        self.instance_type = instance_type
+        self.volume_size = volume_size
+        self.vpc = vpc
+        self.subnet = subnet
         super().__init__(**kwargs)
 
     async def setup(self, task_metadata: Dict) -> None:
@@ -84,7 +88,7 @@ class EC2Executor(SSHExecutor):
         """
         proc = subprocess.run(["terraform", "init"], cwd=self._TF_DIR, capture_output=True)
         if proc.returncode != 0:
-            raise Exception(proc.stderr.decode("utf-8").strip())
+            raise RuntimeError(proc.stderr.decode("utf-8").strip())
 
         state_file = os.path.join(self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate")
 
@@ -98,20 +102,34 @@ class EC2Executor(SSHExecutor):
         infra_vars = [
             "-var=name=covalent-task-{dispatch_id}-{node_id}".format(
                 dispatch_id=task_metadata["dispatch_id"], 
-                node_id=task_metadata["node_id"]
+                node_id=task_metadata["node_id"],
             ),
+
             f"-var=instance_type={self.instance_type}",
-            f"-var=disk_size=32",
+            f"-var=disk_size={self.volume_size}",
             f"-var=key_file={self.ssh_key_file}",
         ]
-        if os.environ["AWS_REGION"]:
+
+        if os.environ.get("AWS_REGION"):
             infra_vars += [
-                "-var=aws_region={region}".format(region=os.environ["AWS_REGION"])
+                f"-var=aws_region={os.environ['AWS_REGION']}",
             ]
+
         if self.profile:
             infra_vars += [
                 f"-var=aws_profile={self.profile}"
             ]
+
+        if self.credentials_file:
+            infra_vars += [
+                f"-var=aws_credentials={self.credentials_file}"
+            ]
+
+        if self.key_name:
+            infra_vars += [
+                f"-var=key_name={self.key_name}"
+            ]
+
         if self.vpc:
             infra_vars += [
                 f"-var=vpc_id={self.vpc}"
@@ -123,14 +141,17 @@ class EC2Executor(SSHExecutor):
 
         cmd = base_cmd + infra_vars
 
-        app_log.debug(f'Infra vars are {infra_vars}')
+        app_log.debug(f"Infra vars are {infra_vars}")
+        app_log.debug(f"CMD run: {cmd}")
+        
         proc = subprocess.run(
             cmd,
             cwd=self._TF_DIR, 
             capture_output=True
         )
+        
         if proc.returncode != 0:
-            raise Exception(proc.stderr.decode("utf-8").strip())
+            raise RuntimeError(proc.stderr.decode("utf-8").strip())
 
         proc = subprocess.run(
             [
@@ -143,8 +164,10 @@ class EC2Executor(SSHExecutor):
             cwd=self._TF_DIR,
             capture_output=True
         )
+
         if proc.returncode != 0:
-            raise Exception(proc.stderr.decode("utf-8").strip())
+            raise RuntimeError(proc.stderr.decode("utf-8").strip())
+
         self.hostname = proc.stdout.decode("utf-8").strip()
 
         proc = subprocess.run(

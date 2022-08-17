@@ -20,6 +20,7 @@
 
 provider "aws" {
   profile = var.aws_profile
+  shared_credentials_files = [var.aws_credentials]
   region  = var.aws_region
 }
 
@@ -47,7 +48,7 @@ resource "aws_instance" "covalent_svc_instance" {
   subnet_id                   = var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id
   associate_public_ip_address = true
 
-  key_name             = "test-pair" # Name of a valid key file
+  key_name             = var.key_name # Name of a valid key pair
   monitoring           = true
 
   root_block_device {

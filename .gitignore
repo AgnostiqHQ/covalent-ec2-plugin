@@ -117,3 +117,10 @@ ipython_config.py
 
 # Coverage
 .coverage
+
+# Scratch
+*.ipynb
+
+# Terraform
+infra/.terraform.lock.hcl
+infra/.terraform

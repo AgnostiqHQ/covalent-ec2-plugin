@@ -24,13 +24,23 @@ variable "name" {
 }
 
 variable "aws_region" {
-  default     = "ca-central-1"
+  default     = "us-east-1"
   description = "Region where resources for the EC2 plugin are deployed"
 }
 
 variable "aws_profile" {
   default     = "default"
   description = "AWS profile used when authenticating"
+}
+
+variable "aws_credentials" {
+  default     = "~/.aws/credentials"
+  description = "AWS credentials file to use when authenticating"
+}
+
+variable "key_name" {
+  default     = ""
+  description = "Key pair name"
 }
 
 variable "vpc_id" {
@@ -54,9 +64,8 @@ variable "instance_type" {
 }
 
 variable "disk_size" {
-  default     = "32"
+  default     = 32
   description = "Server disk size"
-  type = string
 }
 
 variable "key_file" {
