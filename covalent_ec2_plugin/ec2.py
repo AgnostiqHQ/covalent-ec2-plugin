@@ -20,7 +20,6 @@
 
 """EC2 executor plugin for the Covalent dispatcher."""
 
-
 import os
 import subprocess
 from typing import Any, Callable, Dict, List, Tuple
@@ -45,7 +44,6 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
 }
 _EXECUTOR_PLUGIN_DEFAULTS.update(_SSH_EXECUTOR_PLUGIN_DEFAULTS)
 
-#TODO: Return python3_path and remote_cache_dir from terraform, assign to self
 
 class EC2Executor(SSHExecutor):
     """
@@ -61,22 +59,24 @@ class EC2Executor(SSHExecutor):
     _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "infra"))
 
     def __init__(
-        self,
-        profile: str,
-        key_name: str = "",
-        credentials_file: str = "",
-        instance_type: str = "t2.micro",
-        volume_size: int = 8,
-        vpc: str = "",
-        subnet: str = "",
-        **kwargs,
+            self,
+            profile: str,
+            key_name: str = "",
+            username: str = "",
+            hostname: str = "",
+            credentials_file: str = "",
+            instance_type: str = "t2.micro",
+            volume_size: int = 8,
+            vpc: str = "",
+            subnet: str = "",
+            **kwargs,
     ) -> None:
-        # TODO: Read from config if value are not passed in the contructor
-        super().__init__(**kwargs)
-        
+        # TODO: Read from config if value are not passed in the constructor
+        super().__init__(username=username, hostname=hostname, **kwargs)
+
         self.profile = profile
         self.credentials_file = str(Path(credentials_file).expanduser().resolve())
-        
+
         # Default key_name the private key's filename
         self.key_name = key_name or self.ssh_key_file.split("/")[-1].split(".")[0]
 
@@ -105,7 +105,7 @@ class EC2Executor(SSHExecutor):
 
         infra_vars = [
             "-var=name=covalent-task-{dispatch_id}-{node_id}".format(
-                dispatch_id=task_metadata["dispatch_id"], 
+                dispatch_id=task_metadata["dispatch_id"],
                 node_id=task_metadata["node_id"],
             ),
 
@@ -143,16 +143,17 @@ class EC2Executor(SSHExecutor):
 
         app_log.debug(f"Infra vars are {infra_vars}")
         app_log.debug(f"CMD run: {cmd}")
-        
+
         proc = subprocess.run(
             cmd,
-            cwd=self._TF_DIR, 
+            cwd=self._TF_DIR,
             capture_output=True
         )
-        
+
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
 
+        # Return instance attributes from Terraform output and assign to self
         proc = subprocess.run(
             [
                 "terraform",
@@ -185,15 +186,49 @@ class EC2Executor(SSHExecutor):
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
         self.username = proc.stdout.decode("utf-8").strip()
 
+        if self.python3_path == "":
+            proc = subprocess.run(
+                [
+                    "terraform",
+                    "output",
+                    "-raw",
+                    f"-state={state_file}",
+                    "python3_path"
+                ],
+                cwd=self._TF_DIR,
+                capture_output=True
+            )
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr.decode("utf-8").strip())
+
+        self.python3_path = proc.stdout.decode("utf-8").strip()
+
+        proc = subprocess.run(
+            [
+                "terraform",
+                "output",
+                "-raw",
+                f"-state={state_file}",
+                "remote_cache_dir"
+            ],
+            cwd=self._TF_DIR,
+            capture_output=True
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr.decode('utf-8').strip())
+
+        self.remote_cache_dir = proc.stdout.decode('utf-8').strip()
+
     async def teardown(self, task_metadata: Dict) -> None:
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
-        
+
         state_file = os.path.join(self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate")
 
         if not os.path.exists(state_file):
-            raise FileNotFoundError(f"Could not find Terraform state file: {state_file}. Infrastructure may need to be manually deprovisioned.")
+            raise FileNotFoundError(
+                f"Could not find Terraform state file: {state_file}. Infrastructure may need to be manually deprovisioned.")
 
         proc = subprocess.run(
             [

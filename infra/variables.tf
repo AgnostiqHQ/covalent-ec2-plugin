@@ -38,6 +38,16 @@ variable "aws_credentials" {
   description = "AWS credentials file to use when authenticating"
 }
 
+variable "python3_path" {
+  default = "/home/ubuntu/miniconda3/envs/covalent-dev/bin/python3"
+  description = "Python3 path in the active conda environment of the EC2 instance"
+}
+
+variable "remote_cache_dir" {
+  default = "/home/ubuntu/.cache/covalent"
+  description = "Remote cache directory"
+  
+}
 variable "key_name" {
   default     = ""
   description = "Key pair name"
