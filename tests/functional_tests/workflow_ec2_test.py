@@ -4,11 +4,11 @@ from covalent_ec2_plugin.ec2 import EC2Executor
 
 ec2_exec = EC2Executor(
     profile="default",
-    credentials_file="~/.aws/credentials_sankalp",
-    key_name="sankalp_key_pair",
-    ssh_key_file="/Users/sankalpsanand/.aws/sankalp_key_pair.pem",
-    vpc="vpc-07bdd9ca40c4c50a7",
-    subnet="subnet-0a0a7f2a7532383c3",
+    credentials_file="/Users/user/.aws/credentials",
+    key_name="ssh_key",
+    ssh_key_file="/Users/user/.ssh/ssh_key.pem",
+    vpc="",
+    subnet="",
 )
 
 
@@ -29,7 +29,5 @@ def simple_workflow(a, b):
 
 
 dispatch_id = ct.dispatch(simple_workflow)("Hello", "Covalent")
-print(dispatch_id)
-
-# result = ct.get_result(dispatch_id, wait=True)
+result = ct.get_result(dispatch_id, wait=True)
 
