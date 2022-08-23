@@ -21,6 +21,7 @@
 """EC2 executor plugin for the Covalent dispatcher."""
 
 import os
+import copy
 import subprocess
 from typing import Any, Callable, Dict, List, Tuple
 from pathlib import Path
@@ -34,7 +35,7 @@ executor_plugin_name = "EC2Executor"
 app_log = logger.app_log
 log_stack_info = logger.log_stack_info
 
-_EXECUTOR_PLUGIN_DEFAULTS = _SSH_EXECUTOR_PLUGIN_DEFAULTS
+_EXECUTOR_PLUGIN_DEFAULTS = copy.deepcopy(_SSH_EXECUTOR_PLUGIN_DEFAULTS)
 _EXECUTOR_PLUGIN_DEFAULTS.update({
     "profile": "default",
     "credentials_file": "",
