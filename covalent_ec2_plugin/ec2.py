@@ -21,6 +21,7 @@
 """EC2 executor plugin for the Covalent dispatcher."""
 
 import os
+import copy
 import subprocess
 from typing import Any, Callable, Dict, List, Tuple
 from pathlib import Path
@@ -34,15 +35,17 @@ executor_plugin_name = "EC2Executor"
 app_log = logger.app_log
 log_stack_info = logger.log_stack_info
 
-_EXECUTOR_PLUGIN_DEFAULTS = {
+_EXECUTOR_PLUGIN_DEFAULTS = copy.deepcopy(_SSH_EXECUTOR_PLUGIN_DEFAULTS)
+_EXECUTOR_PLUGIN_DEFAULTS.update({
     "profile": "default",
     "credentials_file": "",
     "instance_type": "t2.micro",
-    "volume_size": "8GiB",
+    "volume_size": "8",
     "vpc": "",
     "subnet": "",
-}
-_EXECUTOR_PLUGIN_DEFAULTS.update(_SSH_EXECUTOR_PLUGIN_DEFAULTS)
+    "key_file": "",
+    "python_path": ""
+})
 
 
 class EC2Executor(SSHExecutor):
@@ -184,10 +187,10 @@ class EC2Executor(SSHExecutor):
         )
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
+
         self.username = proc.stdout.decode("utf-8").strip()
 
-        if self.python3_path == "":
-            proc = subprocess.run(
+        proc = subprocess.run(
                 [
                     "terraform",
                     "output",
@@ -200,8 +203,8 @@ class EC2Executor(SSHExecutor):
             )
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
-
-        self.python3_path = proc.stdout.decode("utf-8").strip()
+            
+        self.python_path = proc.stdout.decode("utf-8").strip()
 
         proc = subprocess.run(
             [
