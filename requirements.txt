@@ -1,1 +1,1 @@
-covalent-ssh-plugin==0.8.0rc0
+covalent-ssh-plugin==0.8.0
