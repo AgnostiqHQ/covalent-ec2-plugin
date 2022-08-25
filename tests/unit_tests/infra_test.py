@@ -72,7 +72,7 @@ def mock_plan():
     """Returns a mock Terraform plan object for testing custom variables"""
     
     tf_file = 'main.tf'
-    with open(os.path.join('/tmp', tf_file), 'w') as temp_file:
+    with open(os.path.join(MOCK_TF_DIR, tf_file), 'w') as temp_file:
         temp_file.write(
             """provider "aws" { \n\tprofile = "" \n\tregion = ""\n} 
                \nvariable "name" {\n\tdefault = "" \n}
