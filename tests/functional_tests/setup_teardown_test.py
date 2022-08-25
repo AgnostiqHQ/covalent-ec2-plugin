@@ -23,8 +23,7 @@
 import os
 import uuid
 import pytest
-from covalent_ec2_plugin.ec2 import EC2Executor
-from create_executor import init_executor
+from tests.create_executor import init_executor
 
 
 @pytest.mark.asyncio

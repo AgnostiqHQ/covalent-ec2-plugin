@@ -21,7 +21,7 @@
 from pathlib import Path
 import covalent as ct
 from covalent._results_manager import results_manager as rm
-from create_executor import init_executor
+from tests.create_executor import init_executor
 
 
 def test_dispatcher_functional():
