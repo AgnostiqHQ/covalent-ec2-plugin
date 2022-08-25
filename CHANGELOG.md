@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+## [0.2.0] - 2022-08-24
+
+### Changed
+
+- Updated python3_path -> python_path as per new ssh plugin version (0.8.0)
+- Always overriding python_path to terraform defined value
+
+### Updated
+
+- Updated provisioning script to be as minimal as possible
+
 ## [0.1.0] - 2022-08-19
 
 ### Added
