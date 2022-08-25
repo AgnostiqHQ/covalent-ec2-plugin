@@ -96,9 +96,9 @@ jobs:
 
       - name: Run tests
         run: |
-        covalent start --ignore-migrations
-        PYTHONPATH=$PWD/tests pip install -r requirements.txt
-        PYTHONPATH=$PWD/tests pytest -vv tests/
+          covalent start --ignore-migrations
+          PYTHONPATH=$PWD/tests pip install -r requirements.txt
+          PYTHONPATH=$PWD/tests pytest -vv tests/
 
       - name: Get latest release
         uses: actions-ecosystem/action-get-latest-tag@v1
