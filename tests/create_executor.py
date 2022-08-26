@@ -26,7 +26,7 @@ from covalent_ec2_plugin.ec2 import EC2Executor
 executor = EC2Executor(
     username=os.getenv("SSH_EXECUTOR_USERNAME", "ubuntu"),
     profile=os.getenv("AWS_PROFILE", "default"),
-    credentials_file=os.getenv("AWS_CREDENTIALS"),
+    credentials_file=os.getenv("AWS_CREDENTIALS", "~/.aws/credentials"),
     key_name=os.getenv("KEY_PAIR_NAME"),
     ssh_key_file=os.getenv("SSH_EXECUTOR_SSH_KEY_FILE"),
     vpc="",
