@@ -101,9 +101,7 @@ jobs:
           terraform_wrapper: false
           
       - name: Run tests
-        run:  |
-          cat $GITHUB_ENV
-          PYTHONPATH=$PWD/tests pytest -vv tests/unit_tests/
+        run: PYTHONPATH=$PWD/tests pytest -vv tests/unit_tests/
 
       - name: Get latest release
         uses: actions-ecosystem/action-get-latest-tag@v1
