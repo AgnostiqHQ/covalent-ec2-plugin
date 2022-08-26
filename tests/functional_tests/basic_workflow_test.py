@@ -1,15 +1,6 @@
+import sys
 import covalent as ct
-
-from covalent_ec2_plugin.ec2 import EC2Executor
-
-ec2_exec = EC2Executor(
-    profile="default",
-    credentials_file="/Users/user/.aws/credentials",
-    key_name="ssh_key",
-    ssh_key_file="/Users/user/.ssh/ssh_key.pem",
-    vpc="",
-    subnet="",
-)
+from tests.create_executor import executor as ec2_exec
 
 
 @ct.electron(executor=ec2_exec)
@@ -29,5 +20,7 @@ def simple_workflow(a, b):
 
 
 dispatch_id = ct.dispatch(simple_workflow)("Hello", "Covalent")
-result = ct.get_result(dispatch_id, wait=True)
+status = str(ct.get_result(dispatch_id=dispatch_id, wait=True).status)
 
+if status == str(ct.status.FAILED):
+    sys.exit(1)

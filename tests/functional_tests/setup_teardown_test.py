@@ -23,7 +23,7 @@
 import os
 import uuid
 import pytest
-from tests.create_executor import init_executor
+from tests.create_executor import executor as ec2_exec
 
 
 @pytest.mark.asyncio
@@ -31,22 +31,21 @@ async def test_setup_teardown() -> None:
     
     """Tests whether setup() and teardown() can correctly create and destroy resources, respectively"""
     
-    executor_obj = init_executor()
     dispatch_id = str(uuid.uuid1())
     node_id = '0'
     task_metadata = {"dispatch_id": dispatch_id, "node_id": node_id}
     
     try:
-        await executor_obj.setup(task_metadata=task_metadata)
+        await ec2_exec.setup(task_metadata=task_metadata)
     except Exception as e:
         raise pytest.exit(f"Terraform failed to create the required resources and raised an error {e}")
     
-    test_state_file = os.path.join(executor_obj.cache_dir, f"{dispatch_id}-{node_id}.tfstate")
+    test_state_file = os.path.join(ec2_exec.cache_dir, f"{dispatch_id}-{node_id}.tfstate")
     
     assert os.path.exists(test_state_file) is True
     
     try:
-        await executor_obj.teardown(task_metadata=task_metadata)
+        await ec2_exec.teardown(task_metadata=task_metadata)
     except Exception as e:
         raise pytest.exit(f"Terraform failed to destroy the provisioned resources and raised an error {e}")
     os.remove(test_state_file)

@@ -22,10 +22,9 @@
 
 import os
 import subprocess
-from unittest.mock import MagicMock
 import pytest
 import tftest
-from tests.create_executor import init_executor
+from tests.create_executor import executor as ec2_exec
 
 MOCK_USERNAME = "mock_username"
 MOCK_PROFILE = "mock_profile"
@@ -96,52 +95,49 @@ def mock_plan():
 
 def test_default_variables(plan):
     """Test default variables"""
-
-    exec_obj = init_executor()
+    
     assert plan.variables['name'] == 'covalent-svc'
-    assert plan.variables['key_name'] == ""
-    assert plan.variables['key_file'] == ""
-    assert plan.variables['instance_type'] == exec_obj.instance_type
-    assert plan.variables['disk_size'] == exec_obj.volume_size
-    assert plan.variables['aws_region'] == os.environ.get('AWS_REGION')
-    assert plan.variables['vpc_id'] == exec_obj.vpc
-    assert plan.variables['subnet_id'] == exec_obj.subnet
+    assert plan.variables['instance_type'] == ec2_exec.instance_type
+    assert plan.variables['disk_size'] == ec2_exec.volume_size
+    assert plan.variables['aws_region'] == os.getenv('AWS_REGION')
+    assert plan.variables['vpc_id'] == ec2_exec.vpc
+    assert plan.variables['subnet_id'] == ec2_exec.subnet
     
 
 @pytest.mark.asyncio
 async def test_custom_variables(plan, mock_plan):
     """Tests whether custom variables are correctly passed to Terraform at runtime"""
 
-    exec_obj = init_executor()
-    exec_obj.username = MOCK_USERNAME
-    exec_obj.profile = MOCK_PROFILE
-    exec_obj.credentials_file = MOCK_CREDENTIALS
-    exec_obj.key_name = MOCK_KEY_NAME
-    exec_obj.ssh_key_file = MOCK_SSH_KEY_FILE
-    exec_obj.instance_type = MOCK_INSTANCE_TYPE
-    exec_obj.volume_size = MOCK_DISK_SIZE
-    exec_obj.vpc = MOCK_VPC
-    exec_obj.subnet = MOCK_SUBNET
+    # Set custom attributes in executor instance
+    ec2_exec.username = MOCK_USERNAME
+    ec2_exec.profile = MOCK_PROFILE
+    ec2_exec.credentials_file = MOCK_CREDENTIALS
+    ec2_exec.key_name = MOCK_KEY_NAME
+    ec2_exec.ssh_key_file = MOCK_SSH_KEY_FILE
+    ec2_exec.instance_type = MOCK_INSTANCE_TYPE
+    ec2_exec.volume_size = MOCK_DISK_SIZE
+    ec2_exec.vpc = MOCK_VPC
+    ec2_exec.subnet = MOCK_SUBNET
     
     # Check that custom variables are correctly parsed in setup()
     try:
-        await exec_obj.setup(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
+        await ec2_exec.setup(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
     except Exception as e:
-        # Expected to fail when provisioning resources since the key and credentials are mocks
+        # Expected to fail when provisioning resources since key and credentials are mocks
         pass
     
     assert mock_plan.variables["name"] == MOCK_PLAN_VARS["name"]
-    assert mock_plan.variables['aws_profile'] == exec_obj.profile
-    assert mock_plan.variables['aws_credentials'] == exec_obj.credentials_file
-    assert mock_plan.variables['instance_type'] == exec_obj.instance_type
-    assert mock_plan.variables['disk_size'] == str(exec_obj.volume_size)
-    assert mock_plan.variables['key_name'] == exec_obj.key_name
-    assert mock_plan.variables['key_file'] == exec_obj.ssh_key_file
-    assert mock_plan.variables['vpc_id'] == exec_obj.vpc
-    assert mock_plan.variables['subnet_id'] == exec_obj.subnet
+    assert mock_plan.variables['aws_profile'] == ec2_exec.profile
+    assert mock_plan.variables['aws_credentials'] == ec2_exec.credentials_file
+    assert mock_plan.variables['instance_type'] == ec2_exec.instance_type
+    assert mock_plan.variables['disk_size'] == str(ec2_exec.volume_size)
+    assert mock_plan.variables['key_name'] == ec2_exec.key_name
+    assert mock_plan.variables['key_file'] == ec2_exec.ssh_key_file
+    assert mock_plan.variables['vpc_id'] == ec2_exec.vpc
+    assert mock_plan.variables['subnet_id'] == ec2_exec.subnet
     
     try:
-        await exec_obj.teardown(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
+        await ec2_exec.teardown(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
     except Exception as e:
         # Expected to fail since infrastructure was never created
         assert type(e) == FileNotFoundError
@@ -173,8 +169,7 @@ def test_resources(plan):
 def test_outputs(plan):
     """Tests Terraform's output after invoking setup()"""
 
-    exec_obj = init_executor()
-    exec_obj.username = "ubuntu"
-    assert plan.outputs["username"] == exec_obj.username
-    assert exec_obj.python_path in plan.outputs["python3_path"]
-    assert exec_obj.remote_cache_dir in plan.outputs["remote_cache_dir"]
+    ec2_exec.username = "ubuntu"
+    assert plan.outputs["username"] == ec2_exec.username
+    assert ec2_exec.python_path in plan.outputs["python3_path"]
+    assert ec2_exec.remote_cache_dir in plan.outputs["remote_cache_dir"]
