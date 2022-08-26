@@ -96,7 +96,7 @@ jobs:
 
       - name: Run tests
         run: |
-          PYTHONPATH=$PWD/tests pip install -r requirements.txt
+          PYTHONPATH=$PWD/ pip install -e .
           PYTHONPATH=$PWD/tests pytest -vv tests/unit_tests/
 
       - name: Get latest release
