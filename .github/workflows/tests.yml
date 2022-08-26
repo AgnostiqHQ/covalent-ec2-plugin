@@ -102,7 +102,7 @@ jobs:
           
       - name: Run tests
         run:  |
-          echo $GITHUB_ENV
+          cat $GITHUB_ENV
           PYTHONPATH=$PWD/tests pytest -vv tests/unit_tests/
 
       - name: Get latest release
