@@ -21,9 +21,9 @@
 # # Ignore results folders
 
 import os
-from covalent_ec2_plugin.ec2 import EC2Executor
+import covalent as ct
 
-executor = EC2Executor(
+executor = ct.executor.EC2Executor(
     username=os.getenv("SSH_EXECUTOR_USERNAME", "ubuntu"),
     profile=os.getenv("AWS_PROFILE", "default"),
     credentials_file=os.getenv("AWS_CREDENTIALS"),
