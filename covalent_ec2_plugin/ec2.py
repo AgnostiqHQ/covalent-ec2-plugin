@@ -51,10 +51,13 @@ class EC2Executor(SSHExecutor):
     """
     Executor class that invokes the input function on an EC2 instance
     Args:
-        username: username used to authenticate to the instance.
         profile: The name of the AWS profile
         credentials_file: Filename of the credentials file used for authentication to AWS.
-        key_name: Filename of the private key used for authentication with the remote server if it exists.
+        key_name: Name of the AWS EC2 key pair used for authentication with the remote server if it exists.
+        vpc: (optional) AWS VPC ID of any existing VPCs if any.
+        subnet: (optional) AWS Subnet ID of any existing subnets if any.
+        instance_type: (optional) AWS EC2 Instance type to provision for a given task. Default: t2.micro
+        volume_size: (optional) The size in GB (integer) of the GP2 SSD disk to be provisioned with EC2 instance. Default: 8
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
 
