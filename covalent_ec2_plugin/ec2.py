@@ -43,8 +43,7 @@ _EXECUTOR_PLUGIN_DEFAULTS.update({
     "volume_size": "8",
     "vpc": "",
     "subnet": "",
-    "key_file": "",
-    "python_path": ""
+    "key_name": ""
 })
 
 
@@ -55,7 +54,7 @@ class EC2Executor(SSHExecutor):
         username: username used to authenticate to the instance.
         profile: The name of the AWS profile
         credentials_file: Filename of the credentials file used for authentication to AWS.
-        key_file: Filename of the private key used for authentication with the remote server if it exists.
+        key_name: Filename of the private key used for authentication with the remote server if it exists.
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
 
@@ -72,10 +71,11 @@ class EC2Executor(SSHExecutor):
             volume_size: int = 8,
             vpc: str = "",
             subnet: str = "",
+            conda_env: str = "covalent",
             **kwargs,
     ) -> None:
         # TODO: Read from config if value are not passed in the constructor
-        super().__init__(username=username, hostname=hostname, **kwargs)
+        super().__init__(username=username, hostname=hostname, conda_env=conda_env, **kwargs)
 
         self.profile = profile
         self.credentials_file = str(Path(credentials_file).expanduser().resolve())
@@ -189,22 +189,6 @@ class EC2Executor(SSHExecutor):
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
 
         self.username = proc.stdout.decode("utf-8").strip()
-
-        proc = subprocess.run(
-                [
-                    "terraform",
-                    "output",
-                    "-raw",
-                    f"-state={state_file}",
-                    "python3_path"
-                ],
-                cwd=self._TF_DIR,
-                capture_output=True
-            )
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.decode("utf-8").strip())
-            
-        self.python_path = proc.stdout.decode("utf-8").strip()
 
         proc = subprocess.run(
             [
