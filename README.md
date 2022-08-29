@@ -25,7 +25,6 @@ The following shows an example of how a user might modify their Covalent [config
 
 ```
 [executors.ec2]
-username = "ubuntu"
 key_file = "/home/user/.ssh/ec2_key.pem"
 instance_type = "t2.micro"
 volume_size = "8GiB"
@@ -57,7 +56,6 @@ or use a class object specified with a custom AWS profile within particular task
 
 ```
 executor = ct.executor.EC2Executor(
-    username="ubuntu",
     key_file="/home/user/.ssh/ec2_key.pem",
     instance_type="t2.micro",
     volume_size="8GiB",
