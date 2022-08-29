@@ -94,14 +94,8 @@ jobs:
           VERSION="$(cat ./VERSION)"
           pip install ./dist/covalent-ec2-plugin-${VERSION}.tar.gz
           
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.2.7
-          terraform_wrapper: false
-          
       # - name: Run tests
-      #   run: PYTHONPATH=$PWD/tests pytest -vv tests/unit_tests/
+      #   run: PYTHONPATH=$PWD/tests pytest -vv tests/
 
       - name: Get latest release
         uses: actions-ecosystem/action-get-latest-tag@v1
