@@ -43,7 +43,8 @@ _EXECUTOR_PLUGIN_DEFAULTS.update({
     "volume_size": "8",
     "vpc": "",
     "subnet": "",
-    "key_name": ""
+    "key_name": "",
+    "conda_env": "covalent"
 })
 
 
