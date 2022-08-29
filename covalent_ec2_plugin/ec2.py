@@ -106,7 +106,7 @@ class EC2Executor(SSHExecutor):
             f"-state={state_file}",
         ]
 
-        infra_vars = [
+        self.infra_vars = [
             "-var=name=covalent-task-{dispatch_id}-{node_id}".format(
                 dispatch_id=task_metadata["dispatch_id"],
                 node_id=task_metadata["node_id"],
@@ -119,32 +119,32 @@ class EC2Executor(SSHExecutor):
         ]
 
         if os.environ.get("AWS_REGION"):
-            infra_vars += [
+            self.infra_vars += [
                 f"-var=aws_region={os.environ['AWS_REGION']}",
             ]
 
         if self.profile:
-            infra_vars += [
+            self.infra_vars += [
                 f"-var=aws_profile={self.profile}"
             ]
 
         if self.credentials_file:
-            infra_vars += [
+            self.infra_vars += [
                 f"-var=aws_credentials={self.credentials_file}"
             ]
 
         if self.vpc:
-            infra_vars += [
+            self.infra_vars += [
                 f"-var=vpc_id={self.vpc}"
             ]
         if self.subnet:
-            infra_vars += [
+            self.infra_vars += [
                 f"-var=subnet_id={self.subnet}"
             ]
 
-        cmd = base_cmd + infra_vars
+        cmd = base_cmd + self.infra_vars
 
-        app_log.debug(f"Infra vars are {infra_vars}")
+        app_log.debug(f"Infra vars are {self.infra_vars}")
         app_log.debug(f"CMD run: {cmd}")
 
         proc = subprocess.run(
@@ -233,13 +233,20 @@ class EC2Executor(SSHExecutor):
             raise FileNotFoundError(
                 f"Could not find Terraform state file: {state_file}. Infrastructure may need to be manually deprovisioned.")
 
-        proc = subprocess.run(
-            [
+        base_cmd = [
                 "terraform",
                 "destroy",
                 "-auto-approve",
                 f"-state={state_file}"
-            ],
+            ]
+        
+        cmd = base_cmd + self.infra_vars
+        
+        app_log.debug(f"Infra vars are {self.infra_vars}")
+        app_log.debug(f"CMD run: {cmd}")
+        
+        proc = subprocess.run(
+            cmd,
             cwd=self._TF_DIR,
             capture_output=True
         )
