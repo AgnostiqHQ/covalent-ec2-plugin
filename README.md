@@ -25,15 +25,15 @@ The following shows an example of how a user might modify their Covalent [config
 
 ```
 [executors.ec2]
-key_file = "/home/user/.ssh/ec2_key.pem"
+ssh_key_file = "~/.ssh/ec2_key.pem"
+key_name= "ec2_key"
 instance_type = "t2.micro"
-volume_size = "8GiB"
+volume_size = "8"
 ami = "amzn-ami-hvm-*-x86_64-gp2"
 vpc = ""
 subnet = ""
 profile = "default"
-credentials_file = "/home/user/.aws/credentials"
-cache_dir = "/home/user/.cache/covalent"
+credentials_file = "~/.aws/credentials"
 ```
 This setup assumes the user has created a private key file at the location `/home/user/.ssh/ec2_key.pem` for connecting to the instance via SSH. The setup also assumes that the user uses the `default` AWS profile and credentials file located at `/home/user/.aws/credentials` to authenticate to their AWS account.
 
@@ -56,9 +56,10 @@ or use a class object specified with a custom AWS profile within particular task
 
 ```
 executor = ct.executor.EC2Executor(
-    key_file="/home/user/.ssh/ec2_key.pem",
+    ssh_key_file="~/.ssh/ec2_key.pem",
+    key_name="ec2_key",
     instance_type="t2.micro",
-    volume_size="8GiB",
+    volume_size="8",
     ami="amzn-ami-hvm-*-x86_64-gp2",
     vpc="",
     subnet="",
