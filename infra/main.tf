@@ -62,18 +62,27 @@ resource "aws_instance" "covalent_svc_instance" {
 }
 
 resource "null_resource" "deps_install" {
+
+  provisioner "file" {
+    source      = "sudo-commands.sh"
+    destination = "/tmp/script.sh"
+  }
   provisioner "remote-exec" {
     inline = [
       "echo 'Installing Conda...'",
       "wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh",
       "chmod +x Miniconda3-py38_4.12.0-Linux-x86_64.sh",
       "./Miniconda3-py38_4.12.0-Linux-x86_64.sh -b -p ~/miniconda3",
-      "rm ./Miniconda3-py38_4.12.0-Linux-x86_64.sh",
       "echo 'Creating Conda Environment...'",
-      "/home/ubuntu/miniconda3/bin/conda init bash",
-      "/home/ubuntu/miniconda3/bin/conda create -n covalent-dev python=3.8.13 -y",
+      "eval \"$(~/miniconda3/bin/conda shell.bash hook)\"",
+      "conda init bash",
+      "conda create -n covalent python=3.8.13 -y",
+      "echo \"conda activate covalent\" >> $HOME/.bashrc",
+      "conda activate covalent",
       "echo 'Installing Covalent...'",
-      "/home/ubuntu/miniconda3/envs/covalent-dev/bin/python -m pip install covalent==0.177.0",
+      "pip install covalent==0.177.0",
+      "chmod +x /tmp/script.sh",
+      "sudo bash /tmp/script.sh",
       "echo ok"
     ]
   }
