@@ -93,9 +93,9 @@ jobs:
         run: |
           VERSION="$(cat ./VERSION)"
           pip install ./dist/covalent-ec2-plugin-${VERSION}.tar.gz
-
-#      - name: Run tests
-#        run: PYTHONPATH=$PWD/tests pytest -vv tests/
+          
+      - name: Run tests
+        run: PYTHONPATH=$PWD/tests pytest -vv tests/ --ignore=./tests/functional_tests
 
       - name: Get latest release
         uses: actions-ecosystem/action-get-latest-tag@v1

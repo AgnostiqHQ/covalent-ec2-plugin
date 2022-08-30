@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Added
+
+- Added unit and functional tests
+
 ### Updated
 
 - Updated terraform provisioner script to write conda location to `/etc/environment`

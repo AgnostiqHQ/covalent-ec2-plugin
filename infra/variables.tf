@@ -74,7 +74,7 @@ variable "instance_type" {
 }
 
 variable "disk_size" {
-  default     = 32
+  default     = 8
   description = "Server disk size"
 }
 
