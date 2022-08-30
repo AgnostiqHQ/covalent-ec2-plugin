@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Changed
+
+- Updated `teardown()` to properly destroy resources after completing workflow execution
+
 ## [0.2.0] - 2022-08-24
 
 ### Changed
