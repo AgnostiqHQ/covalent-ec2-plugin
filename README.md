@@ -35,7 +35,7 @@ subnet = ""
 profile = "default"
 credentials_file = "~/.aws/credentials"
 ```
-This setup assumes the user has created a private key file at the location `/home/user/.ssh/ec2_key.pem` for connecting to the instance via SSH. The setup also assumes that the user uses the `default` AWS profile and credentials file located at `/home/user/.aws/credentials` to authenticate to their AWS account.
+This setup assumes the user has created a private key file at the location `~/.ssh/ec2_key.pem` for connecting to the instance via SSH. The setup also assumes that the user uses the `default` AWS profile and credentials file located at `~/.aws/credentials` to authenticate to their AWS account.
 
 
 ## Workflow Construction
