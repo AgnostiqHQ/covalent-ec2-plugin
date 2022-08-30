@@ -43,8 +43,8 @@ _EXECUTOR_PLUGIN_DEFAULTS.update({
     "volume_size": "8",
     "vpc": "",
     "subnet": "",
-    "key_file": "",
-    "python_path": ""
+    "key_name": "",
+    "conda_env": "covalent"
 })
 
 
@@ -52,10 +52,13 @@ class EC2Executor(SSHExecutor):
     """
     Executor class that invokes the input function on an EC2 instance
     Args:
-        username: username used to authenticate to the instance.
         profile: The name of the AWS profile
         credentials_file: Filename of the credentials file used for authentication to AWS.
-        key_file: Filename of the private key used for authentication with the remote server if it exists.
+        key_name: Name of the AWS EC2 key pair used for authentication with the remote server if it exists.
+        vpc: (optional) AWS VPC ID of any existing VPCs if any.
+        subnet: (optional) AWS Subnet ID of any existing subnets if any.
+        instance_type: (optional) AWS EC2 Instance type to provision for a given task. Default: t2.micro
+        volume_size: (optional) The size in GB (integer) of the GP2 SSD disk to be provisioned with EC2 instance. Default: 8
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
 
@@ -72,10 +75,11 @@ class EC2Executor(SSHExecutor):
             volume_size: int = 8,
             vpc: str = "",
             subnet: str = "",
+            conda_env: str = "covalent",
             **kwargs,
     ) -> None:
         # TODO: Read from config if value are not passed in the constructor
-        super().__init__(username=username, hostname=hostname, **kwargs)
+        super().__init__(username=username, hostname=hostname, conda_env=conda_env, **kwargs)
 
         self.profile = profile
         self.credentials_file = str(Path(credentials_file).expanduser().resolve())
@@ -189,22 +193,6 @@ class EC2Executor(SSHExecutor):
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
 
         self.username = proc.stdout.decode("utf-8").strip()
-
-        proc = subprocess.run(
-                [
-                    "terraform",
-                    "output",
-                    "-raw",
-                    f"-state={state_file}",
-                    "python3_path"
-                ],
-                cwd=self._TF_DIR,
-                capture_output=True
-            )
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.decode("utf-8").strip())
-            
-        self.python_path = proc.stdout.decode("utf-8").strip()
 
         proc = subprocess.run(
             [
