@@ -9,13 +9,13 @@
 ## Covalent EC2 Executor Plugin
 
 Covalent is a Pythonic workflow tool used to execute tasks on advanced computing hardware.
-This executor plugin interfaces Covalent with an EC2 instance over SSH. This plugin is appropriate for executing workflow tasks on an instance that has been auto-provisioned and configured by the plugin. 
+This executor plugin interfaces Covalent with an EC2 instance over SSH. This plugin is appropriate for executing workflow tasks on an instance that has been auto-provisioned and configured by the plugin.
 
 ## Installation
 
 To use this plugin with Covalent, simply install it using `pip`:
 
-``` 
+```
 pip install covalent-ec2-plugin
 ```
 
@@ -69,7 +69,7 @@ executor = ct.executor.EC2Executor(
 
 @ct.electron(executor=executor)
 def my_custom_task(x, y):
-    return x + y  
+    return x + y
 ```
 
 For more information on how to get started with Covalent, check out the project [homepage](https://github.com/AgnostiqHQ/covalent) and the official [documentation](https://covalent.readthedocs.io/en/latest/).

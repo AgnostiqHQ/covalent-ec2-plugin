@@ -227,12 +227,12 @@ class EC2Executor(SSHExecutor):
                 "-auto-approve",
                 f"-state={state_file}"
             ]
-        
+
         cmd = base_cmd + self.infra_vars
-        
+
         app_log.debug(f"Infra vars are {self.infra_vars}")
         app_log.debug(f"CMD run: {cmd}")
-        
+
         proc = subprocess.run(
             cmd,
             cwd=self._TF_DIR,
