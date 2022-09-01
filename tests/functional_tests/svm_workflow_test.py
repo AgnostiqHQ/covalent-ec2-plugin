@@ -4,8 +4,7 @@ from tests.create_executor import executor as ec2_exec
 from numpy.random import permutation
 from sklearn import svm, datasets
 
-sklearn_install = "/home/ubuntu/miniconda3/envs/covalent-dev/bin/python -m pip install sklearn"
-numpy_install = "/home/ubuntu/miniconda3/envs/covalent-dev/bin/python -m pip install numpy==1.22.4"
+deps_pip = ct.DepsPip(packages=["numpy==1.22.4","scikit-learn==1.1.2"])
 
 @ct.electron
 def load_data():
@@ -17,7 +16,7 @@ def load_data():
 
 @ct.electron(
     executor=ec2_exec, 
-    deps_bash=ct.DepsBash(commands=[f"{sklearn_install}"])
+    deps_pip=deps_pip
 )
 def train_svm(data, C, gamma):
     X, y = data
