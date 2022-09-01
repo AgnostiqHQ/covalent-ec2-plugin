@@ -7,10 +7,7 @@ from sklearn import svm, datasets
 sklearn_install = "/home/ubuntu/miniconda3/envs/covalent-dev/bin/python -m pip install sklearn"
 numpy_install = "/home/ubuntu/miniconda3/envs/covalent-dev/bin/python -m pip install numpy==1.22.4"
 
-@ct.electron(
-    executor=ec2_exec, 
-    deps_bash=ct.DepsBash(commands=[f"{sklearn_install}"])
-    )
+@ct.electron
 def load_data():
     iris = datasets.load_iris()
     perm = permutation(iris.target.size)
@@ -21,17 +18,14 @@ def load_data():
 @ct.electron(
     executor=ec2_exec, 
     deps_bash=ct.DepsBash(commands=[f"{sklearn_install}"])
-    )
+)
 def train_svm(data, C, gamma):
     X, y = data
     clf = svm.SVC(C=C, gamma=gamma)
     clf.fit(X[90:], y[90:])
     return clf
 
-@ct.electron(
-    executor=ec2_exec,
-    deps_bash=ct.DepsBash(commands=[f"{numpy_install}", f"{sklearn_install}"])
-    )
+@ct.electron
 def score_svm(data, clf):
     X_test, y_test = data
     return clf.score(
@@ -59,7 +53,10 @@ dispatch_id = dispatchable_func(
     	C=1.0,
     	gamma=0.7
     )
-status = str(ct.get_result(dispatch_id=dispatch_id, wait=True).status)
+result = ct.get_result(dispatch_id=dispatch_id, wait=True)
+status = str(result.status)
+
+print(result)
 
 if status == str(ct.status.FAILED):
     sys.exit(1)
