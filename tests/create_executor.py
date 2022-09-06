@@ -32,10 +32,10 @@ executor_config = {
     "ssh_key_file": os.getenv("SSH_EXECUTOR_SSH_KEY_FILE"),
     "vpc": os.getenv("VPC_ID"),
     "subnet": os.getenv("SUBNET_ID"),
-    "cache_dir": "/tmp"
+    "cache_dir": "/tmp",
 }
 
-print('Executor config:')
+print("Executor config:")
 print(executor_config)
 
 executor = ct.executor.EC2Executor(**executor_config)
