@@ -1,5 +1,7 @@
 import sys
+
 import covalent as ct
+
 from tests.create_executor import executor as ec2_exec
 
 

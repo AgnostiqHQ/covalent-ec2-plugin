@@ -20,15 +20,15 @@
 
 """EC2 executor plugin for the Covalent dispatcher."""
 
-import os
 import copy
+import os
 import subprocess
-from typing import Any, Callable, Dict, List, Tuple
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Tuple
 
 from covalent._shared_files import logger
-from covalent_ssh_plugin.ssh import SSHExecutor
 from covalent_ssh_plugin.ssh import _EXECUTOR_PLUGIN_DEFAULTS as _SSH_EXECUTOR_PLUGIN_DEFAULTS
+from covalent_ssh_plugin.ssh import SSHExecutor
 
 executor_plugin_name = "EC2Executor"
 

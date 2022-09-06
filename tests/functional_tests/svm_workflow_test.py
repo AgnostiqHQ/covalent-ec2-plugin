@@ -1,8 +1,10 @@
 import sys
+
 import covalent as ct
-from tests.create_executor import executor as ec2_exec
 from numpy.random import permutation
-from sklearn import svm, datasets
+from sklearn import datasets, svm
+
+from tests.create_executor import executor as ec2_exec
 
 deps_pip = ct.DepsPip(packages=["numpy==1.22.4","scikit-learn==1.1.2"])
 
