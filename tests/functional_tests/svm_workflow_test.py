@@ -15,7 +15,7 @@ def load_data():
     return iris.data, iris.target
 
 @ct.electron(
-    executor=ec2_exec, 
+    executor=ec2_exec,
     deps_pip=deps_pip
 )
 def train_svm(data, C, gamma):
