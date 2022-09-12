@@ -29,6 +29,7 @@ from typing import Any, Callable, Dict, List, Tuple
 from covalent._shared_files import logger
 from covalent_ssh_plugin.ssh import _EXECUTOR_PLUGIN_DEFAULTS as _SSH_EXECUTOR_PLUGIN_DEFAULTS
 from covalent_ssh_plugin.ssh import SSHExecutor
+from covalent_aws_plugins import AWSExecutor
 
 executor_plugin_name = "EC2Executor"
 
@@ -50,7 +51,7 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
 )
 
 
-class EC2Executor(SSHExecutor):
+class EC2Executor(SSHExecutor, AWSExecutor):
     """
     Executor class that invokes the input function on an EC2 instance
     Args:
@@ -81,7 +82,7 @@ class EC2Executor(SSHExecutor):
         **kwargs,
     ) -> None:
         # TODO: Read from config if value are not passed in the constructor
-        super().__init__(username=username, hostname=hostname, conda_env=conda_env, **kwargs)
+        super().__init__(username=username, hostname=hostname, profile=profile, credentials_file=credentials_file, conda_env=conda_env, **kwargs)
 
         self.profile = profile
         self.credentials_file = str(Path(credentials_file).expanduser().resolve())
@@ -207,3 +208,31 @@ class EC2Executor(SSHExecutor):
         proc = subprocess.run(cmd, cwd=self._TF_DIR, capture_output=True)
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
+        
+        
+        
+    async def _upload_task():
+        
+        pass
+    
+    async def submit_task():
+        
+        pass
+    
+    async def get_status(self, info_dict: dict) -> Result:
+        return super().get_status(info_dict)
+    
+    
+    async def poll_task():
+        
+        pass
+    
+    
+    async def query_result():
+        
+        pass
+    
+    async def cancel():
+        
+        pass
+    
