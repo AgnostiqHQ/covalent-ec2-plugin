@@ -208,31 +208,31 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         proc = subprocess.run(cmd, cwd=self._TF_DIR, capture_output=True)
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
-        
-        
-        
+
+
+
     async def _upload_task():
-        
+
         pass
-    
+
     async def submit_task():
-        
+
         pass
-    
+
     async def get_status(self, info_dict: dict) -> Result:
         return super().get_status(info_dict)
-    
-    
+
+
     async def poll_task():
-        
+
         pass
-    
-    
+
+
     async def query_result():
-        
+
         pass
-    
+
     async def cancel():
-        
+
         pass
-    
+
