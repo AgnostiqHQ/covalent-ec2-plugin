@@ -1,15 +1,15 @@
 # # Copyright 2021 Agnostiq Inc.
 # #
 # # This file is part of Covalent.
-# # 
-# # Licensed under the GNU Affero General Public License 3.0 (the "License"). 
+# #
+# # Licensed under the GNU Affero General Public License 3.0 (the "License").
 # # A copy of the License may be obtained with this software package or at
 # #
 # #      https://www.gnu.org/licenses/agpl-3.0.en.html
 # #
-# # Use of this file is prohibited except in compliance with the License. Any 
-# # modifications or derivative works of this file must retain this copyright 
-# # notice, and modified files must contain a notice indicating that they have 
+# # Use of this file is prohibited except in compliance with the License. Any
+# # modifications or derivative works of this file must retain this copyright
+# # notice, and modified files must contain a notice indicating that they have
 # # been altered from the originals.
 # #
 # # Covalent is distributed in the hope that it will be useful, but WITHOUT
@@ -51,7 +51,7 @@ MOCK_PLAN_VARS = {
     "name": "covalent-task-{dispatch_id}-{node_id}".format(
         dispatch_id=MOCK_DISPATCH_ID,
         node_id=MOCK_NODE_ID
-    ) 
+    )
 }
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def plan():
 @pytest.fixture
 def mock_plan():
     """Returns a mock Terraform plan object for testing custom variables"""
-    
+
     tf_file = 'main.tf'
     with open(os.path.join(MOCK_TF_DIR, tf_file), 'w') as temp_file:
         temp_file.write(
@@ -85,7 +85,7 @@ def mock_plan():
                \nvariable "subnet_id" {\n\tdefault = "" \n}
             """
             )
-    proc = subprocess.run(["terraform", "init"], cwd=MOCK_TF_DIR, capture_output=True) 
+    proc = subprocess.run(["terraform", "init"], cwd=MOCK_TF_DIR, capture_output=True)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.decode("utf-8").strip())
 
@@ -95,14 +95,14 @@ def mock_plan():
 
 def test_default_variables(plan):
     """Test default variables"""
-    
+
     assert plan.variables['name'] == 'covalent-svc'
     assert plan.variables['instance_type'] == ec2_exec.instance_type
     assert plan.variables['disk_size'] == ec2_exec.volume_size
     assert plan.variables['aws_region'] == os.getenv('AWS_REGION')
     assert plan.variables['vpc_id'] == ec2_exec.vpc
     assert plan.variables['subnet_id'] == ec2_exec.subnet
-    
+
 
 @pytest.mark.asyncio
 async def test_custom_variables(plan, mock_plan):
@@ -118,14 +118,14 @@ async def test_custom_variables(plan, mock_plan):
     ec2_exec.volume_size = MOCK_DISK_SIZE
     ec2_exec.vpc = MOCK_VPC
     ec2_exec.subnet = MOCK_SUBNET
-    
+
     # Check that custom variables are correctly parsed in setup()
     try:
         await ec2_exec.setup(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
     except Exception as e:
         # Expected to fail when provisioning resources since key and credentials are mocks
         pass
-    
+
     assert mock_plan.variables["name"] == MOCK_PLAN_VARS["name"]
     assert mock_plan.variables['aws_profile'] == ec2_exec.profile
     assert mock_plan.variables['aws_credentials'] == ec2_exec.credentials_file
@@ -135,16 +135,16 @@ async def test_custom_variables(plan, mock_plan):
     assert mock_plan.variables['key_file'] == ec2_exec.ssh_key_file
     assert mock_plan.variables['vpc_id'] == ec2_exec.vpc
     assert mock_plan.variables['subnet_id'] == ec2_exec.subnet
-    
+
     try:
         await ec2_exec.teardown(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
     except Exception as e:
         # Expected to fail since infrastructure was never created
         assert type(e) == FileNotFoundError
-        
+
 def test_modules(plan):
     """Tests module specifications"""
-    
+
     vpc_mod = plan.modules["module.vpc"]
     vpc_name = vpc_mod.resources["aws_vpc.this[0]"]["values"]["tags"]["Name"]
     vpc_cidr_block = vpc_mod.resources["aws_vpc.this[0]"]["values"]["cidr_block"]
