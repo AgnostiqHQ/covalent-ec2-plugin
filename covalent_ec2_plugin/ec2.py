@@ -28,9 +28,9 @@ from typing import Any, Callable, Dict, List, Tuple, Union
 
 from covalent._shared_files import logger
 from covalent._shared_files.config import get_config
+from covalent_aws_plugins import AWSExecutor
 from covalent_ssh_plugin.ssh import _EXECUTOR_PLUGIN_DEFAULTS as _SSH_EXECUTOR_PLUGIN_DEFAULTS
 from covalent_ssh_plugin.ssh import SSHExecutor
-from covalent_aws_plugins import AWSExecutor
 
 executor_plugin_name = "EC2Executor"
 

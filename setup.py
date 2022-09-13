@@ -18,9 +18,9 @@
 #
 # Relief from the License may be granted by purchasing a commercial license.
 
+import re
 import site
 import sys
-import re
 
 from setuptools import find_packages, setup
 

@@ -22,8 +22,10 @@
 
 import os
 import subprocess
+
 import pytest
 import tftest
+
 from tests.create_executor import executor as ec2_exec
 
 MOCK_USERNAME = "mock_username"

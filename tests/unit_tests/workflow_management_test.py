@@ -20,8 +20,9 @@
 
 # # Ignore results folders
 
-import pytest
 import covalent as ct
+import pytest
+
 from tests.unit_tests.infra_test import MOCK_PLAN_VARS
 
 
