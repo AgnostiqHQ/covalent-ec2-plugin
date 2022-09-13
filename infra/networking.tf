@@ -43,7 +43,7 @@ data "http" "myip" {
 }
 
 resource "aws_security_group" "covalent_firewall" {
-  name        = "covalent_firewall"
+  name        = "${var.name}-firewall"
   description = "Allow traffic to Covalent server"
   vpc_id      = var.vpc_id == "" ? module.vpc.vpc_id : var.vpc_id
 

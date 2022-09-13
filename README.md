@@ -9,13 +9,13 @@
 ## Covalent EC2 Executor Plugin
 
 Covalent is a Pythonic workflow tool used to execute tasks on advanced computing hardware.
-This executor plugin interfaces Covalent with an EC2 instance over SSH. This plugin is appropriate for executing workflow tasks on an instance that has been auto-provisioned and configured by the plugin. 
+This executor plugin interfaces Covalent with an EC2 instance over SSH. This plugin is appropriate for executing workflow tasks on an instance that has been auto-provisioned and configured by the plugin.
 
 ## Installation
 
 To use this plugin with Covalent, simply install it using `pip`:
 
-``` 
+```
 pip install covalent-ec2-plugin
 ```
 
@@ -25,18 +25,17 @@ The following shows an example of how a user might modify their Covalent [config
 
 ```
 [executors.ec2]
-username = "ubuntu"
-key_file = "/home/user/.ssh/ec2_key.pem"
+ssh_key_file = "~/.ssh/ec2_key.pem"
+key_name= "ec2_key"
 instance_type = "t2.micro"
-volume_size = "8GiB"
+volume_size = "8"
 ami = "amzn-ami-hvm-*-x86_64-gp2"
 vpc = ""
 subnet = ""
 profile = "default"
-credentials_file = "/home/user/.aws/credentials"
-cache_dir = "/home/user/.cache/covalent"
+credentials_file = "~/.aws/credentials"
 ```
-This setup assumes the user has created a private key file at the location `/home/user/.ssh/ec2_key.pem` for connecting to the instance via SSH. The setup also assumes that the user uses the `default` AWS profile and credentials file located at `/home/user/.aws/credentials` to authenticate to their AWS account.
+This setup assumes the user has created a private key file at the location `~/.ssh/ec2_key.pem` for connecting to the instance via SSH. The setup also assumes that the user uses the `default` AWS profile and credentials file located at `~/.aws/credentials` to authenticate to their AWS account.
 
 
 ## Workflow Construction
@@ -57,10 +56,10 @@ or use a class object specified with a custom AWS profile within particular task
 
 ```
 executor = ct.executor.EC2Executor(
-    username="ubuntu",
-    key_file="/home/user/.ssh/ec2_key.pem",
+    ssh_key_file="~/.ssh/ec2_key.pem",
+    key_name="ec2_key",
     instance_type="t2.micro",
-    volume_size="8GiB",
+    volume_size="8",
     ami="amzn-ami-hvm-*-x86_64-gp2",
     vpc="",
     subnet="",
@@ -70,7 +69,7 @@ executor = ct.executor.EC2Executor(
 
 @ct.electron(executor=executor)
 def my_custom_task(x, y):
-    return x + y  
+    return x + y
 ```
 
 For more information on how to get started with Covalent, check out the project [homepage](https://github.com/AgnostiqHQ/covalent) and the official [documentation](https://covalent.readthedocs.io/en/latest/).

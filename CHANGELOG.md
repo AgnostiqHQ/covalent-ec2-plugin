@@ -7,9 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Tests
+
+- Using DepsPip instead of DepsBash to install pip dependencies for functional tests & logging executor config
+- Added requirements.txt for functional tests
+
+## [0.4.0] - 2022-08-30
+
 ### Added
 
 - Added unit and functional tests
+
+### Updated
+
+- Updated terraform provisioner script to write conda location to `/etc/environment`
+- Using named conda environment and passing as `conda_env` to SSH executor instead of specifying python path
+
+### Operations
+
+- Reusable version workflow now used
+
+## [0.3.0] - 2022-08-30
+
+### Changed
+
+- Updated `teardown()` to properly destroy resources after completing workflow execution
 
 ## [0.2.0] - 2022-08-24
 

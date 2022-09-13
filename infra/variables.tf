@@ -46,7 +46,7 @@ variable "python3_path" {
 variable "remote_cache_dir" {
   default = "/home/ubuntu/.cache/covalent"
   description = "Remote cache directory"
-  
+
 }
 variable "key_name" {
   default     = ""

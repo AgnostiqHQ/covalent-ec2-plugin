@@ -7,9 +7,9 @@
 # #
 # #      https://www.gnu.org/licenses/agpl-3.0.en.html
 # #
-# # Use of this file is prohibited except in compliance with the License. Any 
-# # modifications or derivative works of this file must retain this copyright 
-# # notice, and modified files must contain a notice indicating that they have 
+# # Use of this file is prohibited except in compliance with the License. Any
+# # modifications or derivative works of this file must retain this copyright
+# # notice, and modified files must contain a notice indicating that they have
 # # been altered from the originals.
 # #
 # # Covalent is distributed in the hope that it will be useful, but WITHOUT
@@ -23,13 +23,18 @@
 import os
 import covalent as ct
 
-executor = ct.executor.EC2Executor(
-    username=os.getenv("SSH_EXECUTOR_USERNAME", "ubuntu"),
-    profile=os.getenv("AWS_PROFILE", "default"),
-    credentials_file=os.getenv("AWS_CREDENTIALS", "~/.aws/credentials"),
-    key_name=os.getenv("KEY_PAIR_NAME"),
-    ssh_key_file=os.getenv("SSH_EXECUTOR_SSH_KEY_FILE"),
-    vpc="",
-    subnet="",
-    cache_dir="/tmp"
-)
+executor_config = {
+    "username": os.getenv("SSH_EXECUTOR_USERNAME", "ubuntu"),
+    "profile": os.getenv("AWS_PROFILE", "default"),
+    "credentials_file": os.getenv("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials"),
+    "key_name": os.getenv("KEY_PAIR_NAME"),
+    "ssh_key_file": os.getenv("SSH_EXECUTOR_SSH_KEY_FILE"),
+    "vpc": os.getenv("VPC_ID"),
+    "subnet": os.getenv("SUBNET_ID"),
+    "cache_dir": "/tmp",
+}
+
+print("Executor config:")
+print(executor_config)
+
+executor = ct.executor.EC2Executor(**executor_config)
