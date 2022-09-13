@@ -20,6 +20,7 @@
 
 import site
 import sys
+import re
 
 from setuptools import find_packages, setup
 
@@ -29,7 +30,11 @@ with open("VERSION") as f:
     version = f.read().strip()
 
 with open("requirements.txt") as f:
-    required = f.read().splitlines()
+    def git_match_requirement(req):
+        git_req_match = re.search("#egg=(.+)", req)
+        return f"{git_req_match[1]} @ {req}" if git_req_match else req
+
+    required = [git_match_requirement(req) for req in f.read().splitlines()]
 
 plugins_list = ["ec2 = covalent_ec2_plugin.ec2"]
 
