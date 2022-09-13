@@ -1,8 +1,8 @@
 # # Copyright 2021 Agnostiq Inc.
 # #
 # # This file is part of Covalent.
-# # 
-# # Licensed under the GNU Affero General Public License 3.0 (the "License"). 
+# #
+# # Licensed under the GNU Affero General Public License 3.0 (the "License").
 # # A copy of the License may be obtained with this software package or at
 # #
 # #      https://www.gnu.org/licenses/agpl-3.0.en.html

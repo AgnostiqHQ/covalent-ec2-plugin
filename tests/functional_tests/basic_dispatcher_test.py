@@ -25,7 +25,7 @@ from tests.create_executor import executor as ec2_exec
 
 
 def test_dispatcher_functional():
-    
+
     @ct.electron(executor=ec2_exec)
     def passthrough_a(input):
         print("passthrough_a")
@@ -71,4 +71,4 @@ def test_dispatcher_functional():
     rm._delete_result(dispatch_id)
     assert output == "failed"
 
-    
+
