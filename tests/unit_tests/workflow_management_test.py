@@ -36,7 +36,7 @@ async def test_init_ec2_executor():
 
     assert ec2_exec.username == MOCK_USERNAME
     assert ec2_exec.profile == MOCK_PROFILE
-    
+
 
 @pytest.mark.asyncio
 async def test_upload_task():
