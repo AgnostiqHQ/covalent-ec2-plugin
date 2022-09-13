@@ -123,7 +123,7 @@ async def test_custom_variables(plan, mock_plan):
     try:
         await ec2_exec.setup(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
     except Exception as e:
-        # Expected to fail when provisioning resources since key and credentials are mocks
+        # Expected to raise an exception when provisioning resources since key and credentials are mocks
         pass
     
     assert mock_plan.variables["name"] == MOCK_PLAN_VARS["name"]
@@ -139,8 +139,8 @@ async def test_custom_variables(plan, mock_plan):
     try:
         await ec2_exec.teardown(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
     except Exception as e:
-        # Expected to fail since infrastructure was never created
-        assert type(e) == FileNotFoundError
+        # Expected to raise an exception since infrastructure was not created in setup()
+        assert isinstance(e, RuntimeError)
         
 def test_modules(plan):
     """Tests module specifications"""
@@ -172,4 +172,4 @@ def test_outputs(plan):
     ec2_exec.username = "ubuntu"
     assert plan.outputs["username"] == ec2_exec.username
     assert ec2_exec.python_path in plan.outputs["python3_path"]
-    assert ec2_exec.remote_cache_dir in plan.outputs["remote_cache_dir"]
+    assert ec2_exec.remote_cache in plan.outputs["remote_cache_dir"]
