@@ -30,6 +30,7 @@ with open("VERSION") as f:
     version = f.read().strip()
 
 with open("requirements.txt") as f:
+
     def git_match_requirement(req):
         git_req_match = re.search("#egg=(.+)", req)
         return f"{git_req_match[1]} @ {req}" if git_req_match else req

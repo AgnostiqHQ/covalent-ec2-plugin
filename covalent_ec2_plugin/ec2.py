@@ -69,25 +69,30 @@ class EC2Executor(SSHExecutor, AWSExecutor):
     _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "infra"))
 
     def __init__(
-            self,
-            profile: str,
-            key_name: str = "",
-            username: str = "",
-            hostname: str = "",
-            credentials_file: str = "",
-            instance_type: str = "t2.micro",
-            volume_size: int = 8,
-            vpc: str = "",
-            subnet: str = "",
-            conda_env: str = "covalent",
-            **kwargs,
+        self,
+        profile: str,
+        key_name: str = "",
+        username: str = "",
+        hostname: str = "",
+        credentials_file: str = "",
+        instance_type: str = "t2.micro",
+        volume_size: int = 8,
+        vpc: str = "",
+        subnet: str = "",
+        conda_env: str = "covalent",
+        **kwargs,
     ) -> None:
 
         credentials_file = credentials_file or str(Path(credentials_file).expanduser().resolve())
         username = username or get_config("executors.ec2.username")
         hostname = hostname or get_config("executors.ec2.hostname")
-        super().__init__(username=username, hostname=hostname, credentials_file=credentials_file,
-                         conda_env=conda_env, **kwargs)
+        super().__init__(
+            username=username,
+            hostname=hostname,
+            credentials_file=credentials_file,
+            conda_env=conda_env,
+            **kwargs,
+        )
 
         self.profile = profile or get_config("executors.ec2.profile")
         self.key_name = key_name or get_config("executors.ec2.key_name")
@@ -252,7 +257,9 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         """
 
         if not os.path.exists(self.key_name):
-            raise RuntimeError(f"The public key file '{self.key_name}' does not exist on the host machine.")
+            raise RuntimeError(
+                f"The public key file '{self.key_name}' does not exist on the host machine."
+            )
 
         super()._validate_credentials()
 
