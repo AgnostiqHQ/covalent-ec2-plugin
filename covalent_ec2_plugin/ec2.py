@@ -242,7 +242,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
     def _validate_credentials(self) -> Union[Dict[str, str], bool]:
         """
         Validate key pair and credentials file used to authenticate to AWS and EC2
-        
+
         Args:
             None
         Returns:

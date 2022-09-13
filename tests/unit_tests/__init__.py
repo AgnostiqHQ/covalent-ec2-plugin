@@ -73,7 +73,7 @@ def mock_plan():
     tf_file = 'main.tf'
     with open(os.path.join(MOCK_TF_DIR, tf_file), 'w') as temp_file:
         temp_file.write(
-            """provider "aws" { \n\tprofile = "" \n\tregion = ""\n} 
+            """provider "aws" { \n\tprofile = "" \n\tregion = ""\n}
                \nvariable "name" {\n\tdefault = "" \n}
                \nvariable "aws_credentials" {\n\tdefault = "" \n}
                \nvariable "aws_profile" {\n\tdefault = "" \n}
