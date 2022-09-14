@@ -121,7 +121,7 @@ async def test_custom_variables(mock_plan):
     ec2_exec.volume_size = MOCK_DISK_SIZE
     ec2_exec.vpc = MOCK_VPC
     ec2_exec.subnet = MOCK_SUBNET
-  
+
     with pytest.raises(RuntimeError) as re:
          # Expected to raise an exception in setup() since key and credentials are mocks
         await ec2_exec.setup(
@@ -140,7 +140,7 @@ async def test_custom_variables(mock_plan):
     assert mock_plan.variables["key_file"] == ec2_exec.ssh_key_file
     assert mock_plan.variables["vpc_id"] == ec2_exec.vpc
     assert mock_plan.variables["subnet_id"] == ec2_exec.subnet
-    
+
     with pytest.raises(FileNotFoundError) as fe:
         # Expected to raise an exception in teardown() since infrastructure was not created in setup()
         await ec2_exec.teardown(
