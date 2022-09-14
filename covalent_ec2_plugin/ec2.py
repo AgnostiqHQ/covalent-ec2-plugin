@@ -24,9 +24,11 @@ import copy
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 from covalent._shared_files import logger
+from covalent._shared_files.config import get_config
+from covalent_aws_plugins import AWSExecutor
 from covalent_ssh_plugin.ssh import _EXECUTOR_PLUGIN_DEFAULTS as _SSH_EXECUTOR_PLUGIN_DEFAULTS
 from covalent_ssh_plugin.ssh import SSHExecutor
 
@@ -50,7 +52,7 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
 )
 
 
-class EC2Executor(SSHExecutor):
+class EC2Executor(SSHExecutor, AWSExecutor):
     """
     Executor class that invokes the input function on an EC2 instance
     Args:
@@ -80,19 +82,24 @@ class EC2Executor(SSHExecutor):
         conda_env: str = "covalent",
         **kwargs,
     ) -> None:
-        # TODO: Read from config if value are not passed in the constructor
-        super().__init__(username=username, hostname=hostname, conda_env=conda_env, **kwargs)
 
-        self.profile = profile
-        self.credentials_file = str(Path(credentials_file).expanduser().resolve())
+        credentials_file = credentials_file or str(Path(credentials_file).expanduser().resolve())
+        username = username or get_config("executors.ec2.username")
+        hostname = hostname or get_config("executors.ec2.hostname")
+        super().__init__(
+            username=username,
+            hostname=hostname,
+            credentials_file=credentials_file,
+            conda_env=conda_env,
+            **kwargs,
+        )
 
-        # Default key_name the private key's filename
-        self.key_name = key_name or self.ssh_key_file.split("/")[-1].split(".")[0]
-
-        self.instance_type = instance_type
-        self.volume_size = volume_size
-        self.vpc = vpc
-        self.subnet = subnet
+        self.profile = profile or get_config("executors.ec2.profile")
+        self.key_name = key_name or get_config("executors.ec2.key_name")
+        self.instance_type = instance_type or get_config("executors.ec2.instance_type")
+        self.volume_size = volume_size or get_config("executors.ec2.volume_size")
+        self.vpc = vpc or get_config("executors.ec2.vpc")
+        self.subnet = subnet or get_config("executors.ec2.subnet")
 
     async def setup(self, task_metadata: Dict) -> None:
         """
@@ -174,14 +181,14 @@ class EC2Executor(SSHExecutor):
         self.username = proc.stdout.decode("utf-8").strip()
 
         proc = subprocess.run(
-            ["terraform", "output", "-raw", f"-state={state_file}", "remote_cache_dir"],
+            ["terraform", "output", "-raw", f"-state={state_file}", "remote_cache"],
             cwd=self._TF_DIR,
             capture_output=True,
         )
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
 
-        self.remote_cache_dir = proc.stdout.decode("utf-8").strip()
+        self.remote_cache = proc.stdout.decode("utf-8").strip()
 
     async def teardown(self, task_metadata: Dict) -> None:
         """
@@ -207,3 +214,52 @@ class EC2Executor(SSHExecutor):
         proc = subprocess.run(cmd, cwd=self._TF_DIR, capture_output=True)
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.decode("utf-8").strip())
+
+    async def _upload_task(self):
+        """Upload required workflow files to an EC2 instance"""
+
+        pass
+
+    async def submit_task(self):
+        """Submits details of a task to an executor-managed EC2 instance"""
+        pass
+
+    async def get_status(self, info_dict: dict) -> bool:
+        """Retrieves the status of a running task"""
+        pass
+
+    async def _poll_task(self):
+        """Polls the status of a running task"""
+        pass
+
+    async def query_result(self):
+        """Query's the result object corresponding to a submitted task"""
+        pass
+
+    async def cancel(self):
+        """Cancels execution of a workflow function"""
+
+        raise NotImplementedError
+
+    async def _validate_credentials(self) -> Union[Dict[str, str], bool]:
+        """
+        Validate key pair and credentials file used to authenticate to AWS and EC2
+
+        Args:
+            None
+        Returns:
+            boolean indicating if key pair and credentials file exist
+        Raises:
+            FileNotFoundError: if either key pair or credentials file do not exist.
+        """
+
+        if not os.path.exists(self.key_name):
+            raise FileNotFoundError(f"The instance key file '{self.key_name}' does not exist.")
+
+        if not os.path.exists(self.credentials_file):
+            creds_file_suffix = self.credentials_file.split("/")[-1]
+            raise FileNotFoundError(
+                f"The AWS credentials file '{creds_file_suffix}' does not exist."
+            )
+
+        return True

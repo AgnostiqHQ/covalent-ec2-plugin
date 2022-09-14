@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Updated
+
+- Introduced `AWSExecutor` as a second parent to the `EC2Executor`
+
+### Tests
+
+- Added unit tests for validating attributes and credentials
+
 ### Tests
 
 - Using DepsPip instead of DepsBash to install pip dependencies for functional tests & logging executor config

@@ -29,7 +29,6 @@ executor_config = {
     "profile": os.getenv("AWS_PROFILE", "default"),
     "credentials_file": os.getenv("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials"),
     "key_name": os.getenv("KEY_PAIR_NAME"),
-    "ssh_key_file": os.getenv("SSH_EXECUTOR_SSH_KEY_FILE"),
     "vpc": os.getenv("VPC_ID"),
     "subnet": os.getenv("SUBNET_ID"),
     "cache_dir": "/tmp",

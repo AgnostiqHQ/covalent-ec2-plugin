@@ -1,1 +1,2 @@
-covalent-ssh-plugin==0.9.0
+git+https://github.com/AgnostiqHQ/covalent-aws-plugins.git@develop#egg=covalent-aws-plugins
+git+https://github.com/AgnostiqHQ/covalent-ssh-plugin.git@develop#egg=covalent-ssh-plugin

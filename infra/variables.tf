@@ -43,7 +43,7 @@ variable "python3_path" {
   description = "Python3 path in the active conda environment of the EC2 instance"
 }
 
-variable "remote_cache_dir" {
+variable "remote_cache" {
   default = "/home/ubuntu/.cache/covalent"
   description = "Remote cache directory"
 
