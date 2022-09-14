@@ -123,7 +123,7 @@ async def test_custom_variables(mock_plan):
     ec2_exec.subnet = MOCK_SUBNET
 
     with pytest.raises(RuntimeError) as re:
-         # Expected to raise an exception in setup() since key and credentials are mocks
+        # Expected to raise an exception in setup() since key and credentials are mocks
         await ec2_exec.setup(
             task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID}
         )
@@ -146,8 +146,13 @@ async def test_custom_variables(mock_plan):
         await ec2_exec.teardown(
             task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID}
         )
-    mock_state_file = os.path.join(ec2_exec.cache_dir, f"{MOCK_DISPATCH_ID}-{MOCK_NODE_ID}.tfstate")
-    assert str(fe.value) == f"Could not find Terraform state file: {mock_state_file}. Infrastructure may need to be manually deprovisioned."
+    mock_state_file = os.path.join(
+        ec2_exec.cache_dir, f"{MOCK_DISPATCH_ID}-{MOCK_NODE_ID}.tfstate"
+    )
+    assert (
+        str(fe.value)
+        == f"Could not find Terraform state file: {mock_state_file}. Infrastructure may need to be manually deprovisioned."
+    )
 
 
 def test_modules(plan):
