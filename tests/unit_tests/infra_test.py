@@ -51,10 +51,10 @@ MOCK_PLAN_VARS = {
     "instance_type": MOCK_INSTANCE_TYPE,
     "disk_size": MOCK_DISK_SIZE,
     "name": "covalent-task-{dispatch_id}-{node_id}".format(
-        dispatch_id=MOCK_DISPATCH_ID,
-        node_id=MOCK_NODE_ID
-    )
+        dispatch_id=MOCK_DISPATCH_ID, node_id=MOCK_NODE_ID
+    ),
 }
+
 
 @pytest.fixture
 def plan():
@@ -68,12 +68,13 @@ def plan():
     tf = tftest.TerraformTest(tf_dir)
     return tf.plan(output=True)
 
+
 @pytest.fixture
 def mock_plan():
     """Returns a mock Terraform plan object for testing custom variables"""
 
-    tf_file = 'main.tf'
-    with open(os.path.join(MOCK_TF_DIR, tf_file), 'w') as temp_file:
+    tf_file = "main.tf"
+    with open(os.path.join(MOCK_TF_DIR, tf_file), "w") as temp_file:
         temp_file.write(
             """provider "aws" { \n\tprofile = "" \n\tregion = ""\n}
                \nvariable "name" {\n\tdefault = "" \n}
@@ -86,7 +87,7 @@ def mock_plan():
                \nvariable "vpc_id" {\n\tdefault = "" \n}
                \nvariable "subnet_id" {\n\tdefault = "" \n}
             """
-            )
+        )
     proc = subprocess.run(["terraform", "init"], cwd=MOCK_TF_DIR, capture_output=True)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.decode("utf-8").strip())
@@ -98,12 +99,12 @@ def mock_plan():
 def test_default_variables(plan):
     """Test default variables"""
 
-    assert plan.variables['name'] == 'covalent-svc'
-    assert plan.variables['instance_type'] == ec2_exec.instance_type
-    assert plan.variables['disk_size'] == ec2_exec.volume_size
-    assert plan.variables['aws_region'] == os.getenv('AWS_REGION')
-    assert plan.variables['vpc_id'] == ec2_exec.vpc
-    assert plan.variables['subnet_id'] == ec2_exec.subnet
+    assert plan.variables["name"] == "covalent-svc"
+    assert plan.variables["instance_type"] == ec2_exec.instance_type
+    assert plan.variables["disk_size"] == ec2_exec.volume_size
+    assert plan.variables["aws_region"] == os.getenv("AWS_REGION")
+    assert plan.variables["vpc_id"] == ec2_exec.vpc
+    assert plan.variables["subnet_id"] == ec2_exec.subnet
 
 
 @pytest.mark.asyncio
@@ -123,26 +124,31 @@ async def test_custom_variables(plan, mock_plan):
 
     # Check that custom variables are correctly parsed in setup()
     try:
-        await ec2_exec.setup(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
+        await ec2_exec.setup(
+            task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID}
+        )
     except Exception as e:
         # Expected to raise an exception when provisioning resources since key and credentials are mocks
         pass
 
     assert mock_plan.variables["name"] == MOCK_PLAN_VARS["name"]
-    assert mock_plan.variables['aws_profile'] == ec2_exec.profile
-    assert mock_plan.variables['aws_credentials'] == ec2_exec.credentials_file
-    assert mock_plan.variables['instance_type'] == ec2_exec.instance_type
-    assert mock_plan.variables['disk_size'] == str(ec2_exec.volume_size)
-    assert mock_plan.variables['key_name'] == ec2_exec.key_name
-    assert mock_plan.variables['key_file'] == ec2_exec.ssh_key_file
-    assert mock_plan.variables['vpc_id'] == ec2_exec.vpc
-    assert mock_plan.variables['subnet_id'] == ec2_exec.subnet
+    assert mock_plan.variables["aws_profile"] == ec2_exec.profile
+    assert mock_plan.variables["aws_credentials"] == ec2_exec.credentials_file
+    assert mock_plan.variables["instance_type"] == ec2_exec.instance_type
+    assert mock_plan.variables["disk_size"] == str(ec2_exec.volume_size)
+    assert mock_plan.variables["key_name"] == ec2_exec.key_name
+    assert mock_plan.variables["key_file"] == ec2_exec.ssh_key_file
+    assert mock_plan.variables["vpc_id"] == ec2_exec.vpc
+    assert mock_plan.variables["subnet_id"] == ec2_exec.subnet
 
     try:
-        await ec2_exec.teardown(task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID})
+        await ec2_exec.teardown(
+            task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID}
+        )
     except Exception as e:
         # Expected to raise an exception since infrastructure was not created in setup()
         assert isinstance(e, RuntimeError)
+
 
 def test_modules(plan):
     """Tests module specifications"""
@@ -159,9 +165,11 @@ def test_resources(plan):
 
     instance_name = plan.resources["aws_instance.covalent_svc_instance"]["name"]
     firewall_name = plan.resources["aws_security_group.covalent_firewall"]["name"]
-    firewall_description = plan.resources["aws_security_group.covalent_firewall"]["values"]["description"]
+    firewall_description = plan.resources["aws_security_group.covalent_firewall"]["values"][
+        "description"
+    ]
     ingress_rule = plan.resources["aws_security_group.covalent_firewall"]["values"]["ingress"]
-    assert instance_name == 'covalent_svc_instance'
+    assert instance_name == "covalent_svc_instance"
     assert firewall_name == "covalent_firewall"
     assert firewall_description == "Allow traffic to Covalent server"
     assert ingress_rule[0]["description"] == "Allow SSH Access"
