@@ -54,23 +54,13 @@ def test_init_ec2_executor():
 
 @pytest.mark.parametrize(
     "key_file, credentials, return_value, exception",
-    [(MOCK_SSH_KEY_FILE, MOCK_CREDENTIALS, True, None)],
-)
-@pytest.mark.asyncio
-async def test_valid_credentials(key_file, credentials, return_value, exception):
-    """Test valid key and credentials files."""
-
-    mock_exec = ct.executor.EC2Executor(
-        profile=MOCK_PROFILE, key_name=key_file, credentials_file=credentials
-    )
-
-    valid_res = await mock_exec._validate_credentials()
-    assert valid_res == return_value
-
-
-@pytest.mark.parametrize(
-    "key_file, credentials, return_value, exception",
     [
+        (
+            MOCK_SSH_KEY_FILE,
+            MOCK_CREDENTIALS,
+            True,
+            None
+        ),
         (
             "non_existent_key",
             MOCK_CREDENTIALS,
@@ -78,25 +68,28 @@ async def test_valid_credentials(key_file, credentials, return_value, exception)
             "The instance key file 'non_existent_key' does not exist.",
         ),
         (
-            MOCK_SSH_KEY_FILE,
-            "non_existent_creds",
-            None,
-            "The AWS credentials file 'non_existent_creds' does not exist.",
+                MOCK_SSH_KEY_FILE,
+                "non_existent_creds",
+                None,
+                "The AWS credentials file 'non_existent_creds' does not exist.",
         ),
     ],
 )
 @pytest.mark.asyncio
-async def test_invalid_credentials(key_file, credentials, return_value, exception):
-    """Test that the right exceptions are raised if key or credentials files are not found"""
+async def test_validate_credentials(key_file, credentials, return_value, exception):
+    """Test validation of key file and credentials."""
 
     mock_exec = ct.executor.EC2Executor(
         profile=MOCK_PROFILE, key_name=key_file, credentials_file=credentials
     )
 
-    with pytest.raises(FileNotFoundError) as re:
+    if key_file == MOCK_SSH_KEY_FILE and credentials == MOCK_CREDENTIALS:
         res = await mock_exec._validate_credentials()
-        assert res is None
-    assert str(re.value) == exception
+        assert res is return_value
+    else:
+        with pytest.raises(FileNotFoundError) as re:
+            await mock_exec._validate_credentials()
+        assert str(re.value) == exception
 
 
 def test_upload_task():
