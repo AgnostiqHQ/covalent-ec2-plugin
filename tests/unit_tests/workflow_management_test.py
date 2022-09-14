@@ -55,12 +55,7 @@ def test_init_ec2_executor():
 @pytest.mark.parametrize(
     "key_file, credentials, return_value, exception",
     [
-        (
-            MOCK_SSH_KEY_FILE,
-            MOCK_CREDENTIALS,
-            True,
-            None
-        ),
+        (MOCK_SSH_KEY_FILE, MOCK_CREDENTIALS, True, None),
         (
             "non_existent_key",
             MOCK_CREDENTIALS,
@@ -68,10 +63,10 @@ def test_init_ec2_executor():
             "The instance key file 'non_existent_key' does not exist.",
         ),
         (
-                MOCK_SSH_KEY_FILE,
-                "non_existent_creds",
-                None,
-                "The AWS credentials file 'non_existent_creds' does not exist.",
+            MOCK_SSH_KEY_FILE,
+            "non_existent_creds",
+            None,
+            "The AWS credentials file 'non_existent_creds' does not exist.",
         ),
     ],
 )
