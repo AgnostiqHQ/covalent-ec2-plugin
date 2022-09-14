@@ -121,9 +121,9 @@ async def test_custom_variables(mock_plan):
     ec2_exec.volume_size = MOCK_DISK_SIZE
     ec2_exec.vpc = MOCK_VPC
     ec2_exec.subnet = MOCK_SUBNET
-  
+
     with pytest.raises(RuntimeError) as re:
-         # Expected to raise an exception in setup() since key and credentials are mocks
+        # Expected to raise an exception in setup() since key and credentials are mocks
         await ec2_exec.setup(
             task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID}
         )
@@ -140,14 +140,19 @@ async def test_custom_variables(mock_plan):
     assert mock_plan.variables["key_file"] == ec2_exec.ssh_key_file
     assert mock_plan.variables["vpc_id"] == ec2_exec.vpc
     assert mock_plan.variables["subnet_id"] == ec2_exec.subnet
-    
+
     with pytest.raises(FileNotFoundError) as fe:
         # Expected to raise an exception in teardown() since infrastructure was not created in setup()
         await ec2_exec.teardown(
             task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID}
         )
-    mock_state_file = os.path.join(ec2_exec.cache_dir, f"{MOCK_DISPATCH_ID}-{MOCK_NODE_ID}.tfstate")
-    assert str(fe.value) == f"Could not find Terraform state file: {mock_state_file}. Infrastructure may need to be manually deprovisioned."
+    mock_state_file = os.path.join(
+        ec2_exec.cache_dir, f"{MOCK_DISPATCH_ID}-{MOCK_NODE_ID}.tfstate"
+    )
+    assert (
+        str(fe.value)
+        == f"Could not find Terraform state file: {mock_state_file}. Infrastructure may need to be manually deprovisioned."
+    )
 
 
 def test_modules(plan):
