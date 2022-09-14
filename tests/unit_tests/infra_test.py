@@ -30,7 +30,7 @@ from tests.create_executor import executor as ec2_exec
 
 MOCK_USERNAME = "mock_username"
 MOCK_PROFILE = "mock_profile"
-MOCK_CREDENTIALS = "mock_credentials"
+MOCK_CREDENTIALS = "/tmp/mock_credentials"
 MOCK_SSH_KEY_FILE = "/tmp/mock_key.pem"
 MOCK_KEY_NAME = "mock_key"
 MOCK_INSTANCE_TYPE = "mock_instance_type"
@@ -174,4 +174,4 @@ def test_outputs(plan):
     ec2_exec.username = "ubuntu"
     assert plan.outputs["username"] == ec2_exec.username
     assert ec2_exec.python_path in plan.outputs["python3_path"]
-    assert ec2_exec.remote_cache in plan.outputs["remote_cache_dir"]
+    assert ec2_exec.remote_cache in plan.outputs["remote_cache"]

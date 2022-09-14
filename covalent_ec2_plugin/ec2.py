@@ -228,18 +228,15 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         pass
 
     async def query_result(self):
-
         """Query's the result object corresponding to a submitted task"""
-
         pass
 
     async def cancel(self):
-
         """Cancels execution of a workflow function"""
 
         raise NotImplementedError
 
-    def _validate_credentials(self) -> Union[Dict[str, str], bool]:
+    async def _validate_credentials(self) -> Union[Dict[str, str], bool]:
         """
         Validate key pair and credentials file used to authenticate to AWS and EC2
 
@@ -252,8 +249,10 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         """
 
         if not os.path.exists(self.key_name):
-            raise RuntimeError(f"The public key file '{self.key_name}' does not exist on the host machine.")
+            raise FileNotFoundError(f"The instance key file '{self.key_name}' does not exist.")
 
-        super()._validate_credentials()
+        if not os.path.exists(self.credentials_file):
+            creds_file_suffix = self.credentials_file.split('/')[-1]
+            raise FileNotFoundError(f"The AWS credentials file '{creds_file_suffix}' does not exist.")
 
         return True
