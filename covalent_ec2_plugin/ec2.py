@@ -250,7 +250,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         Returns:
             boolean indicating if key pair and credentials file exist
         Raises:
-            RuntimeError: if either key pair or credentials file do not exist.
+            FileNotFoundError: if either key pair or credentials file do not exist.
         """
 
         if not os.path.exists(self.key_name):
