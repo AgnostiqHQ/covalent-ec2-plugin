@@ -108,7 +108,7 @@ def test_default_variables(plan):
 
 
 @pytest.mark.asyncio
-async def test_custom_variables(plan, mock_plan):
+async def test_custom_variables(mock_plan):
     """Tests whether custom variables are correctly passed to Terraform at runtime"""
 
     # Set custom attributes in executor instance
@@ -121,16 +121,16 @@ async def test_custom_variables(plan, mock_plan):
     ec2_exec.volume_size = MOCK_DISK_SIZE
     ec2_exec.vpc = MOCK_VPC
     ec2_exec.subnet = MOCK_SUBNET
-
-    # Check that custom variables are correctly parsed in setup()
-    try:
+  
+    with pytest.raises(RuntimeError) as re:
+         # Expected to raise an exception in setup() since key and credentials are mocks
         await ec2_exec.setup(
             task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID}
         )
-    except Exception as e:
-        # Expected to raise an exception when provisioning resources since key and credentials are mocks
-        pass
+    msg = f"error configuring Terraform AWS Provider: failed to get shared config profile, {MOCK_PROFILE}"
+    assert msg in str(re.value)
 
+    # Check that custom variables are correctly constructed in setup()
     assert mock_plan.variables["name"] == MOCK_PLAN_VARS["name"]
     assert mock_plan.variables["aws_profile"] == ec2_exec.profile
     assert mock_plan.variables["aws_credentials"] == ec2_exec.credentials_file
@@ -140,14 +140,14 @@ async def test_custom_variables(plan, mock_plan):
     assert mock_plan.variables["key_file"] == ec2_exec.ssh_key_file
     assert mock_plan.variables["vpc_id"] == ec2_exec.vpc
     assert mock_plan.variables["subnet_id"] == ec2_exec.subnet
-
-    try:
+    
+    with pytest.raises(FileNotFoundError) as fe:
+        # Expected to raise an exception in teardown() since infrastructure was not created in setup()
         await ec2_exec.teardown(
             task_metadata={"dispatch_id": MOCK_DISPATCH_ID, "node_id": MOCK_NODE_ID}
         )
-    except Exception as e:
-        # Expected to raise an exception since infrastructure was not created in setup()
-        assert isinstance(e, RuntimeError)
+    mock_state_file = os.path.join(ec2_exec.cache_dir, f"{MOCK_DISPATCH_ID}-{MOCK_NODE_ID}.tfstate")
+    assert str(fe.value) == f"Could not find Terraform state file: {mock_state_file}. Infrastructure may need to be manually deprovisioned."
 
 
 def test_modules(plan):
