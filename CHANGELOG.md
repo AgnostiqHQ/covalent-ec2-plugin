@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Updated
 
 - Introduced `AWSExecutor` as a second parent to the `EC2Executor`
+- Updated requirements.txt to pin aws executor plugins to pre-release version 0.1.0rc0
+- Updated requirements.txt to pin ssh plugin to version 0.13.0rc0
 
 ### Tests
 
