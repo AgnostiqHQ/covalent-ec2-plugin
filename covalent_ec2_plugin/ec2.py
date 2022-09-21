@@ -20,11 +20,12 @@
 
 """EC2 executor plugin for the Covalent dispatcher."""
 
+import asyncio
 import copy
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Coroutine, Dict, List, Tuple, Union
 
 from covalent._shared_files import logger
 from covalent._shared_files.config import get_config
@@ -70,11 +71,12 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
     def __init__(
         self,
-        profile: str,
-        key_name: str = "",
-        username: str = "",
-        hostname: str = "",
-        credentials_file: str = "",
+        profile: str = None,
+        key_name: str = None,
+        username: str = None,
+        hostname: str = None,
+        credentials_file: str = None,
+        region: str = None,
         instance_type: str = "t2.micro",
         volume_size: int = 8,
         vpc: str = "",
@@ -83,37 +85,88 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         **kwargs,
     ) -> None:
 
-        credentials_file = credentials_file or str(Path(credentials_file).expanduser().resolve())
         username = username or get_config("executors.ec2.username")
         hostname = hostname or get_config("executors.ec2.hostname")
-        super().__init__(
+        profile = profile or get_config("executors.ec2.profile")
+        credentials_file or get_config("executors.ec2.credentials_file")
+
+        AWSExecutor.__init__(
+            self=self, profile=profile, region=region, credentials_file=credentials_file
+        )
+        SSHExecutor.__init__(
+            self=self,
             username=username,
             hostname=hostname,
-            credentials_file=credentials_file,
             conda_env=conda_env,
             **kwargs,
         )
 
         self.profile = profile or get_config("executors.ec2.profile")
-        self.key_name = key_name or get_config("executors.ec2.key_name")
+        self.key_name = (
+            key_name
+            or kwargs.get("ssh_key_file", "").split("/")[-1]
+            or get_config("executors.ec2.key_name")
+        )
         self.instance_type = instance_type or get_config("executors.ec2.instance_type")
         self.volume_size = volume_size or get_config("executors.ec2.volume_size")
         self.vpc = vpc or get_config("executors.ec2.vpc")
         self.subnet = subnet or get_config("executors.ec2.subnet")
+
+    async def _run_async_subprocess(self, cmd: List[str], cwd=None, log_output: bool = False):
+
+        proc = await asyncio.create_subprocess_shell(
+            " ".join(cmd), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=cwd
+        )
+
+        if log_output:
+            stdout_chunks = []
+            while True:
+                line = await proc.stdout.readline()
+                if not line:
+                    break
+                line_str = line.decode("utf-8").strip()
+                stdout_chunks.append(line_str)
+                app_log.debug(line_str)
+
+            _, stderr = await proc.communicate()
+            stderr = stderr.decode("utf-8").strip()
+            stdout = os.linesep.join(stdout_chunks)
+
+        else:
+            stdout, stderr = await proc.communicate()
+            stdout = stdout.decode("utf-8").strip()
+            stderr = stderr.decode("utf-8").strip()
+
+        if proc.returncode != 0:
+            app_log.debug(stderr)
+            raise subprocess.CalledProcessError(proc.returncode, cmd, stdout, stderr)
+
+        return proc, stdout, stderr
+
+    def _get_tf_statefile_path(self, task_metadata: Dict) -> str:
+        state_file = os.path.join(
+            self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
+        )
+        return state_file
+
+    async def _get_tf_output(self, var: str, state_file: str) -> str:
+        _, value, _ = await self._run_async_subprocess(
+            ["terraform", "output", "-raw", f"-state={state_file}", var], cwd=self._TF_DIR
+        )
+        return value
 
     async def setup(self, task_metadata: Dict) -> None:
         """
         Invokes Terraform to provision supporting resources for the instance
 
         """
-        proc = subprocess.run(["terraform", "init"], cwd=self._TF_DIR, capture_output=True)
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.decode("utf-8").strip())
 
-        state_file = os.path.join(
-            self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
-        )
+        state_file = self._get_tf_statefile_path(task_metadata)
 
+        # Init Terraform
+        await self._run_async_subprocess(["terraform", "init"], cwd=self._TF_DIR, log_output=True)
+
+        # Apply Terraform Plan
         base_cmd = [
             "terraform",
             "apply",
@@ -132,9 +185,9 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             f"-var=key_name={self.key_name}",
         ]
 
-        if os.environ.get("AWS_REGION"):
+        if self.region:
             self.infra_vars += [
-                f"-var=aws_region={os.environ['AWS_REGION']}",
+                f"-var=aws_region={self.region}",
             ]
 
         if self.profile:
@@ -150,54 +203,25 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         cmd = base_cmd + self.infra_vars
 
-        app_log.debug(f"Infra vars are {self.infra_vars}")
-        app_log.debug(f"CMD run: {cmd}")
+        app_log.debug(f"Running Terraform setup command: {cmd}")
 
-        proc = subprocess.run(cmd, cwd=self._TF_DIR, capture_output=True)
+        await self._run_async_subprocess(cmd, cwd=self._TF_DIR, log_output=True)
 
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.decode("utf-8").strip())
+        # Get Hostname from Terraform Output
+        self.hostname = await self._get_tf_output("hostname", state_file)
 
-        # Return instance attributes from Terraform output and assign to self
-        proc = subprocess.run(
-            ["terraform", "output", "-raw", f"-state={state_file}", "hostname"],
-            cwd=self._TF_DIR,
-            capture_output=True,
-        )
+        # Get Username from Terraform Output
+        self.username = await self._get_tf_output("username", state_file)
 
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.decode("utf-8").strip())
-
-        self.hostname = proc.stdout.decode("utf-8").strip()
-
-        proc = subprocess.run(
-            ["terraform", "output", "-raw", f"-state={state_file}", "username"],
-            cwd=self._TF_DIR,
-            capture_output=True,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.decode("utf-8").strip())
-
-        self.username = proc.stdout.decode("utf-8").strip()
-
-        proc = subprocess.run(
-            ["terraform", "output", "-raw", f"-state={state_file}", "remote_cache"],
-            cwd=self._TF_DIR,
-            capture_output=True,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.decode("utf-8").strip())
-
-        self.remote_cache = proc.stdout.decode("utf-8").strip()
+        # Get Remote Cache from Terraform Output
+        self.remote_cache = await self._get_tf_output("remote_cache", state_file)
 
     async def teardown(self, task_metadata: Dict) -> None:
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
 
-        state_file = os.path.join(
-            self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
-        )
+        state_file = self._get_tf_statefile_path(task_metadata)
 
         if not os.path.exists(state_file):
             raise FileNotFoundError(
@@ -205,41 +229,11 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             )
 
         base_cmd = ["terraform", "destroy", "-auto-approve", f"-state={state_file}"]
-
         cmd = base_cmd + self.infra_vars
 
-        app_log.debug(f"Infra vars are {self.infra_vars}")
-        app_log.debug(f"CMD run: {cmd}")
+        app_log.debug(f"Running teardown Terraform command: {cmd}")
 
-        proc = subprocess.run(cmd, cwd=self._TF_DIR, capture_output=True)
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.decode("utf-8").strip())
-
-    async def _upload_task(self):
-        """Upload required workflow files to an EC2 instance"""
-
-        pass
-
-    async def submit_task(self):
-        """Submits details of a task to an executor-managed EC2 instance"""
-        pass
-
-    async def get_status(self, info_dict: dict) -> bool:
-        """Retrieves the status of a running task"""
-        pass
-
-    async def _poll_task(self):
-        """Polls the status of a running task"""
-        pass
-
-    async def query_result(self):
-        """Query's the result object corresponding to a submitted task"""
-        pass
-
-    async def cancel(self):
-        """Cancels execution of a workflow function"""
-
-        raise NotImplementedError
+        await self._run_async_subprocess(cmd, cwd=self._TF_DIR, log_output=True)
 
     async def _validate_credentials(self) -> Union[Dict[str, str], bool]:
         """
@@ -253,13 +247,12 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             FileNotFoundError: if either key pair or credentials file do not exist.
         """
 
-        if not os.path.exists(self.key_name):
-            raise FileNotFoundError(f"The instance key file '{self.key_name}' does not exist.")
+        if not Path(self.ssh_key_file).expanduser().resolve().exists():
+            raise FileNotFoundError(f"The instance key file '{self.ssh_key_file}' does not exist.")
 
-        if not os.path.exists(self.credentials_file):
-            creds_file_suffix = self.credentials_file.split("/")[-1]
+        if not Path(self.credentials_file).expanduser().resolve().exists():
             raise FileNotFoundError(
-                f"The AWS credentials file '{creds_file_suffix}' does not exist."
+                f"The AWS credentials file '{str(Path(self.credentials_file).resolve())}' does not exist."
             )
 
         return True
