@@ -20,6 +20,8 @@
 
 # # Ignore results folders
 
+from pathlib import Path
+
 import covalent as ct
 import pytest
 
@@ -53,38 +55,42 @@ def test_init_ec2_executor():
 
 
 @pytest.mark.parametrize(
-    "key_file, credentials, return_value, exception",
-    [
-        (MOCK_SSH_KEY_FILE, MOCK_CREDENTIALS, True, None),
-        (
-            "non_existent_key",
-            MOCK_CREDENTIALS,
-            None,
-            "The instance key file 'non_existent_key' does not exist.",
-        ),
-        (
-            MOCK_SSH_KEY_FILE,
-            "non_existent_creds",
-            None,
-            "The AWS credentials file 'non_existent_creds' does not exist.",
-        ),
-    ],
+    "does_aws_credentials_exist, does_ssh_key_exist",
+    [(False, False), (False, True), (True, True), (True, False)],
 )
 @pytest.mark.asyncio
-async def test_validate_credentials(key_file, credentials, return_value, exception):
+async def test_validate_credentials(
+    does_aws_credentials_exist, does_ssh_key_exist, tmp_path: Path
+):
     """Test validation of key file and credentials."""
 
+    aws_credentials_path = "/some/path/that/does/not/exist"
+    ssh_key_file = "/some/path/that/does/not/exist"
+
+    if does_aws_credentials_exist:
+        aws_credentials_path = tmp_path / "aws_credentials"
+        aws_credentials_path.touch()
+        aws_credentials_path = str(aws_credentials_path)
+
+    if does_ssh_key_exist:
+        ssh_key_file = tmp_path / "ssh_key"
+        ssh_key_file.touch()
+        ssh_key_file = str(ssh_key_file)
+
     mock_exec = ct.executor.EC2Executor(
-        profile=MOCK_PROFILE, key_name=key_file, credentials_file=credentials
+        profile=MOCK_PROFILE, ssh_key_file=ssh_key_file, credentials_file=aws_credentials_path
     )
 
-    if key_file == MOCK_SSH_KEY_FILE and credentials == MOCK_CREDENTIALS:
-        res = await mock_exec._validate_credentials()
-        assert res is return_value
+    if does_aws_credentials_exist and does_ssh_key_exist:
+        try:
+            await mock_exec._validate_credentials()
+        except:
+            pytest.fail(
+                "Validate credentials should not throw an error if both aws credentials & ssh key exist."
+            )
     else:
         with pytest.raises(FileNotFoundError) as re:
             await mock_exec._validate_credentials()
-        assert str(re.value) == exception
 
 
 def test_upload_task():
