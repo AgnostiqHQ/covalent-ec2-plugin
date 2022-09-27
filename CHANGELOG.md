@@ -18,11 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - Added unit tests for validating attributes and credentials
-
-### Tests
-
 - Using DepsPip instead of DepsBash to install pip dependencies for functional tests & logging executor config
 - Added requirements.txt for functional tests
+
+### Operations
+
+- Added license workflow
 
 ## [0.4.0] - 2022-08-30
 
