@@ -11,7 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated docs to include more information about required/optional config values, and provide information about each cloud resource that needs to be provisioned
 
-### Updated
+## [0.5.1] - 2022-09-29
+
+### Fixed
+
+- Typo in `release.yml`
+
+## [0.5.0] - 2022-09-29
+
+### Added
+
+- Added license workflow
+
+### Changed
 
 - Made EC2 executor async aware
 - updated to be compatible with ssh plugin 0.14.0rc0
@@ -22,9 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - Added unit tests for validating attributes and credentials
-
-### Tests
-
 - Using DepsPip instead of DepsBash to install pip dependencies for functional tests & logging executor config
 - Added requirements.txt for functional tests
 
@@ -34,13 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added unit and functional tests
 
-### Updated
+### Changed
 
 - Updated terraform provisioner script to write conda location to `/etc/environment`
 - Using named conda environment and passing as `conda_env` to SSH executor instead of specifying python path
-
-### Operations
-
 - Reusable version workflow now used
 
 ## [0.3.0] - 2022-08-30
@@ -55,9 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated python3_path -> python_path as per new ssh plugin version (0.8.0)
 - Always overriding python_path to terraform defined value
-
-### Updated
-
 - Updated provisioning script to be as minimal as possible
 
 ## [0.1.0] - 2022-08-19
