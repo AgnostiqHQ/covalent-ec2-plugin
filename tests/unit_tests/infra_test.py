@@ -60,7 +60,9 @@ MOCK_PLAN_VARS = {
 def plan():
     """Returns a Terraform plan object"""
 
-    tf_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../..", "infra"))
+    tf_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../covalent_ec2_plugin", "infra")
+    )
     proc = subprocess.run(["terraform", "init"], cwd=tf_dir, capture_output=True)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.decode("utf-8").strip())

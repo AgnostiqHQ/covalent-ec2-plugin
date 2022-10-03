@@ -41,7 +41,7 @@ plugins_list = ["ec2 = covalent_ec2_plugin.ec2"]
 
 setup_info = {
     "name": "covalent-ec2-plugin",
-    "packages": find_packages("."),
+    "packages": find_packages(exclude=["tests"]),
     "version": version,
     "maintainer": "Agnostiq",
     "url": "https://github.com/AgnostiqHQ/covalent-ec2-plugin",
