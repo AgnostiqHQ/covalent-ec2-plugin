@@ -85,7 +85,6 @@ jobs:
           cd dist
           tar xzf covalent-ec2-plugin-${VERSION}.tar.gz
           diff -r covalent-ec2-plugin-${VERSION}/covalent_ec2_plugin/ ../covalent_ec2_plugin/
-          diff -r covalent-ec2-plugin-${VERSION}/infra/ ../infra/
           rm -rf covalent-ec2-plugin-${VERSION}/
           cd ..
 

@@ -18,6 +18,7 @@
 #
 # Relief from the License may be granted by purchasing a commercial license.
 
+import os
 import re
 import site
 import sys
@@ -41,7 +42,7 @@ plugins_list = ["ec2 = covalent_ec2_plugin.ec2"]
 
 setup_info = {
     "name": "covalent-ec2-plugin",
-    "packages": find_packages("."),
+    "packages": find_packages(exclude=["tests"]),
     "version": version,
     "maintainer": "Agnostiq",
     "url": "https://github.com/AgnostiqHQ/covalent-ec2-plugin",
@@ -81,4 +82,5 @@ setup_info = {
 }
 
 if __name__ == "__main__":
+    os.environ["BASE_COVALENT_AWS_PLUGINS_ONLY"] = "True"
     setup(**setup_info)
