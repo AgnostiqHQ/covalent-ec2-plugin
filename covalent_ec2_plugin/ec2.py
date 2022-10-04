@@ -67,7 +67,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
     """
 
-    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "infra"))
+    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "infra"))
 
     def __init__(
         self,

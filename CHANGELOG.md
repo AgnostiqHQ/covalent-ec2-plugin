@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Fixed
+
+- Moved `infra` folder to live within `covalent_ec2_plugin` module and added missing init file to include during installation
+
 ## [0.6.0] - 2022-09-30
 
 ### Added
