@@ -9,9 +9,11 @@
 ## Covalent EC2 Executor Plugin
 
 Covalent is a Pythonic workflow tool used to execute tasks on advanced computing hardware.
-This executor plugin interfaces Covalent with an EC2 instance over SSH. This plugin is appropriate for executing workflow tasks on an instance that has been auto-provisioned and configured by the plugin.
 
-## Installation
+This plugin allows tasks to be executed in an AWS EC2 instance (which is auto-created) when you execute your workflow with covalent.
+
+
+## 1. Installation
 
 To use this plugin with Covalent, simply install it using `pip`:
 
@@ -19,64 +21,110 @@ To use this plugin with Covalent, simply install it using `pip`:
 pip install covalent-ec2-plugin
 ```
 
-## Configuration
+## 2. Usage Example
 
-The following shows an example of how a user might modify their Covalent [configuration](https://covalent.readthedocs.io/en/latest/how_to/config/customization.html) to support this plugin:
+This is a toy example of how a workflow can be adapted to utilize the EC2 Executor. Here we train a Support Vector Machine (SVM) and spin up an EC2 automatically to execute the `train_svm` electron. We also note we require [DepsPip](https://covalent.readthedocs.io/en/latest/concepts/concepts.html#depspip) to install the dependencies on the EC2 instance.
 
-```
-[executors.ec2]
-ssh_key_file = "~/.ssh/ec2_key.pem"
-key_name= "ec2_key"
-instance_type = "t2.micro"
-volume_size = "8"
-ami = "amzn-ami-hvm-*-x86_64-gp2"
-vpc = ""
-subnet = ""
-profile = "default"
-credentials_file = "~/.aws/credentials"
-```
-This setup assumes the user has created a private key file at the location `~/.ssh/ec2_key.pem` for connecting to the instance via SSH. The setup also assumes that the user uses the `default` AWS profile and credentials file located at `~/.aws/credentials` to authenticate to their AWS account.
-
-
-## Workflow Construction
-
-Within a workflow, users can decorate electrons using the default settings:
-
-```
+```python
+from numpy.random import permutation
+from sklearn import svm, datasets
 import covalent as ct
 
-@ct.electron(executor="ec2")
-def my_task():
-    import socket
-    return socket.get_hostname()
-
-```
-
-or use a class object specified with a custom AWS profile within particular tasks:
-
-```
-executor = ct.executor.EC2Executor(
-    ssh_key_file="~/.ssh/ec2_key.pem",
-    key_name="ec2_key",
-    instance_type="t2.micro",
-    volume_size="8",
-    ami="amzn-ami-hvm-*-x86_64-gp2",
-    vpc="",
-    subnet="",
-    profile="custom_profile",
-    credentials_file="~/.aws/credentials"
+deps_pip = ct.DepsPip(
+	packages=["numpy==1.23.2", "scikit-learn==1.1.2"]
 )
 
-@ct.electron(executor=executor)
-def my_custom_task(x, y):
-    return x + y
+executor = ct.executor.EC2Executor(
+	instance_type="t2.micro",
+	volume_size=8, #GiB
+	ssh_key_file="~/.ssh/id_rsa",
+	key_name="key_name" # EC2 Key Pair
+)
+
+# Use executor plugin to train our SVM model.
+@ct.electron(
+    executor=executor,
+    deps_pip=deps_pip
+)
+def train_svm(data, C, gamma):
+    X, y = data
+    clf = svm.SVC(C=C, gamma=gamma)
+    clf.fit(X[90:], y[90:])
+    return clf
+
+@ct.electron
+def load_data():
+    iris = datasets.load_iris()
+    perm = permutation(iris.target.size)
+    iris.data = iris.data[perm]
+    iris.target = iris.target[perm]
+    return iris.data, iris.target
+
+@ct.electron
+def score_svm(data, clf):
+    X_test, y_test = data
+    return clf.score(
+    	X_test[:90],
+	 	y_test[:90]
+    )
+
+@ct.lattice
+def run_experiment(C=1.0, gamma=0.7):
+    data = load_data()
+    clf = train_svm(
+    	data=data,
+    	C=C,
+    	gamma=gamma
+    )
+    score = score_svm(
+    	data=data,
+	 	clf=clf
+    )
+    return score
+
+# Dispatch the workflow
+dispatch_id = ct.dispatch(run_experiment)(
+	C=1.0,
+	gamma=0.7
+)
+
+# Wait for our result and get result value
+result = ct.get_result(dispatch_id=dispatch_id, wait=True).result
+
+print(result)
 ```
+
+During the execution of the workflow one can navigate to the UI to see the status of the workflow, once completed however the above script should also output a value with the score of our model.
+
+```
+0.8666666666666667
+```
+
+
+## 3. Configuration
+
+There are many configuration options that can be passed in to the class `ct.executor.EC2Executor` or by modifying the [covalent config file](https://covalent.readthedocs.io/en/latest/how_to/config/customization.html) under the section `[executors.ec2]`
+
+For more information about all of the possible configuration values visit our [read the docs (RTD) guide](https://covalent.readthedocs.io/en/latest/api/executors/awsec2.html) for this plugin.
+
+## 4. Required AWS Resources
+
+In order to run your workflows with covalent there are a few notable resources that need to be provisioned first.
+
+For more information regarding which cloud resources need to be provisioned visit our [read the docs (RTD) guide](https://covalent.readthedocs.io/en/latest/api/executors/awsec2.html) for this plugin.
+
+
+The required resources include an EC2 Key Pair (which corresponds to the `key_name` config value), and optionally a VPC & Subnet that can be used instead of the EC2 executor automatically creating it.
+
+
+## Getting Started with Covalent
+
 
 For more information on how to get started with Covalent, check out the project [homepage](https://github.com/AgnostiqHQ/covalent) and the official [documentation](https://covalent.readthedocs.io/en/latest/).
 
 ## Release Notes
 
-Release notes are available in the [Changelog](https://github.com/AgnostiqHQ/covalent-executor-template/blob/main/CHANGELOG.md).
+Release notes for this plugin are available in the [Changelog](https://github.com/AgnostiqHQ/covalent-ec2-plugin/blob/main/CHANGELOG.md).
 
 ## Citation
 
