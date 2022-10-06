@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
-### Changed
+### Fixed
 
-- Setting `BASE_COVALENT_AWS_PLUGINS_ONLY` environment system wide to circumvent `setup.py` subprocesses when installing.
+- Store `BASE_COVALENT_AWS_PLUGINS_ONLY` in a temporary file rather than storing it as an environment variable.
+
+### Docs
+
+- Updated docs to include more information about required/optional config values, and provide information about each cloud resource that needs to be provisioned
+
+## [0.6.1] - 2022-10-04
+
+### Fixed
+
+- Moved `infra` folder to live within `covalent_ec2_plugin` module and added missing init file to include during installation
 
 ## [0.6.0] - 2022-09-30
 
