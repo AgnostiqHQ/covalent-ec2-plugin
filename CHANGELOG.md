@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Changed
+
+- Pinned version of covalent-aws-plugins to be gt than 0.7.0rc0 & covalent-ssh-plugin to be gt than 0.15.0rc0
+
 ## [0.6.2] - 2022-10-06
 
 ### Fixed

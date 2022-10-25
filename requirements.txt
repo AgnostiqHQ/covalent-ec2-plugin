@@ -1,2 +1,2 @@
-covalent-aws-plugins
-covalent-ssh-plugin==0.14.0rc0
+covalent-aws-plugins>=0.7.0rc0
+covalent-ssh-plugin>=0.15.0rc0
