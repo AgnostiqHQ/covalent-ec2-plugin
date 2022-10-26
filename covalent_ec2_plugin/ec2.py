@@ -163,8 +163,11 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         state_file = self._get_tf_statefile_path(task_metadata)
 
-        # Init Terraform
-        await self._run_async_subprocess(["terraform", "init"], cwd=self._TF_DIR, log_output=True)
+        # Init Terraform (doing this in a blocking manner to avoid race conditions during init, better way would to be use asyncio
+        # locks or to ensure that terraform init is run just once)
+        subprocess.run(["terraform init"], cwd=self._TF_DIR, shell=True, check=True)
+
+        # await self._run_async_subprocess(["terraform", "init"], cwd=self._TF_DIR, log_output=True)
 
         # Apply Terraform Plan
         base_cmd = [
