@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+## [0.8.1] - 2022-10-26
+
 ### Fixed
 
 - Fixed a race condition that arises from running `terraform init` in an asynchronous manner from multiple electrons
