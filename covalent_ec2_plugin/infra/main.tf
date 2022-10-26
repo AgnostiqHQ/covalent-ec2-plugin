@@ -80,7 +80,7 @@ resource "null_resource" "deps_install" {
       "echo \"conda activate covalent\" >> $HOME/.bashrc",
       "conda activate covalent",
       "echo 'Installing Covalent...'",
-      "pip install covalent==0.177.0",
+      "pip install covalent==0.202.0",
       "chmod +x /tmp/script.sh",
       "sudo bash /tmp/script.sh",
       "echo ok"
