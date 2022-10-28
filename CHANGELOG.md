@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Changed
+
+- Updated SSH plugin version to correspond with covalent >=0.202.0,<1
+
 ## [0.9.0] - 2022-10-27
 
 ### Changed
