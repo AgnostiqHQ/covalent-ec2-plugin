@@ -1,31 +1,27 @@
-import sys
-
 import covalent as ct
+import pytest
 
-from tests.create_executor import executor as ec2_exec
-
-
-@ct.electron(executor=ec2_exec)
-def join_words(a, b):
-    return "-".join([a, b])
+from tests.functional_tests.fixtures.executor import executor
 
 
-@ct.electron
-def excitement(a):
-    return f"{a}!"
+def test_basic_workflow():
+    @ct.electron(executor=executor)
+    def join_words(a, b):
+        return "-".join([a, b])
 
+    @ct.electron
+    def excitement(a):
+        return f"{a}!"
 
-@ct.lattice
-def simple_workflow(a, b):
-    phrase = join_words(a, b)
-    return excitement(phrase)
+    @ct.lattice
+    def simple_workflow(a, b):
+        phrase = join_words(a, b)
+        return excitement(phrase)
 
+    dispatch_id = ct.dispatch(simple_workflow)("Hello", "Covalent")
+    result = ct.get_result(dispatch_id=dispatch_id, wait=True)
+    status = str(result.status)
 
-dispatch_id = ct.dispatch(simple_workflow)("Hello", "Covalent")
-result = ct.get_result(dispatch_id=dispatch_id, wait=True)
-status = str(result.status)
+    print(result)
 
-print(result)
-
-if status == str(ct.status.FAILED):
-    sys.exit(1)
+    assert status == str(ct.status.COMPLETED)
