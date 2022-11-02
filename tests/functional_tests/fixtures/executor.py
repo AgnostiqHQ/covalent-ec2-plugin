@@ -29,12 +29,12 @@ import os
 import covalent as ct
 
 executor_config = {
-    "username": os.getenv("SSH_EXECUTOR_USERNAME", "ubuntu"),
-    "profile": os.getenv("AWS_PROFILE", "default"),
-    "credentials_file": os.getenv("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials"),
-    "ssh_key_file": os.getenv("ssh_key_file"),
-    "vpc": os.getenv("VPC_ID"),
-    "subnet": os.getenv("SUBNET_ID"),
+    "username": os.getenv("executor_username", "ubuntu"),
+    "profile": os.getenv("executor_profile", "default"),
+    "credentials_file": os.getenv("executor_credentials_file", "~/.aws/credentials"),
+    "ssh_key_file": os.getenv("executor_ssh_key_file"),
+    "vpc": os.getenv("executor_vpc"),
+    "subnet": os.getenv("executor_subnet"),
     "cache_dir": "/tmp",
 }
 
