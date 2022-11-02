@@ -4,6 +4,7 @@ import pytest
 from tests.functional_tests.fixtures.executor import executor
 
 
+@pytest.mark.functional_tests
 def test_basic_workflow():
     @ct.electron(executor=executor)
     def join_words(a, b):
