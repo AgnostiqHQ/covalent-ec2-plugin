@@ -1,7 +1,5 @@
 import covalent as ct
 import pytest
-from numpy.random import permutation
-from sklearn import datasets, svm
 
 from tests.functional_tests.fixtures.executor import executor
 
@@ -11,6 +9,9 @@ import covalent as ct
 
 
 def test_svm_model():
+    from numpy.random import permutation
+    from sklearn import datasets, svm
+
     @ct.electron
     def load_data():
         iris = datasets.load_iris()
