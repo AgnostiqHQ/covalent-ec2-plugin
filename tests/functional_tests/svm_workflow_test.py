@@ -8,6 +8,7 @@ deps_pip = ct.DepsPip(packages=["numpy==1.22.4", "scikit-learn==1.1.2"])
 import covalent as ct
 
 
+@pytest.mark.functional_tests
 def test_svm_model():
     from numpy.random import permutation
     from sklearn import datasets, svm
