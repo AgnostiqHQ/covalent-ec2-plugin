@@ -41,8 +41,9 @@ log_stack_info = logger.log_stack_info
 _EXECUTOR_PLUGIN_DEFAULTS = copy.deepcopy(_SSH_EXECUTOR_PLUGIN_DEFAULTS)
 _EXECUTOR_PLUGIN_DEFAULTS.update(
     {
-        "profile": "default",
+        "profile": "",
         "credentials_file": "",
+        "region": "",
         "instance_type": "t2.micro",
         "volume_size": "8",
         "vpc": "",
@@ -89,6 +90,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         hostname = hostname or get_config("executors.ec2.hostname")
         profile = profile or get_config("executors.ec2.profile")
         credentials_file or get_config("executors.ec2.credentials_file")
+        region = region or get_config("executors.ec2.region")
 
         AWSExecutor.__init__(
             self=self, profile=profile, region=region, credentials_file=credentials_file

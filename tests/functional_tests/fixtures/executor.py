@@ -30,7 +30,6 @@ import covalent as ct
 
 executor_config = {
     "username": os.getenv("executor_username", "ubuntu"),
-    "profile": os.getenv("executor_profile", "default"),
     "credentials_file": os.getenv("executor_credentials_file", "~/.aws/credentials"),
     "ssh_key_file": os.getenv("executor_ssh_key_file", ""),
     "vpc": os.getenv("executor_vpc"),
