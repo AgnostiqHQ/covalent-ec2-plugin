@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed executor defaults for boto3 session args
+
+### Changed
+
 - Functional tests using pytest and .env file configuration
 
 ## [0.10.0] - 2022-10-28
