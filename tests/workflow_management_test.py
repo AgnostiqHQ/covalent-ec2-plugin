@@ -25,33 +25,28 @@ from pathlib import Path
 import covalent as ct
 import pytest
 
-from tests.unit_tests.infra_test import MOCK_PLAN_VARS
+MOCK_USERNAME = "ubuntu"
+MOCK_PROFILE = "default"
 
-MOCK_PROFILE = MOCK_PLAN_VARS["aws_profile"]
-MOCK_USERNAME = "mock_username"
-MOCK_SSH_KEY_FILE = MOCK_PLAN_VARS["key_file"]
-MOCK_CREDENTIALS = MOCK_PLAN_VARS["aws_credentials"]
 
-with open(MOCK_SSH_KEY_FILE, "w") as tmp1:
-    tmp1.write("@^598")
-
-with open(MOCK_CREDENTIALS, "w") as tmp2:
-    tmp2.write("[default]\naws_access_key_id = 123\naws_secret_access_key =aBc")
-
-ec2_exec = ct.executor.EC2Executor(username=MOCK_USERNAME, profile=MOCK_PROFILE)
+@pytest.fixture
+def executor():
+    config = {"username": MOCK_USERNAME, "profile": MOCK_PROFILE}
+    ec2_exec = ct.executor.EC2Executor(**config)
+    return ec2_exec
 
 
 @pytest.mark.asyncio
-async def test_cancel():
+async def test_cancel(executor):
     with pytest.raises(NotImplementedError):
-        await ec2_exec.cancel()
+        await executor.cancel()
 
 
-def test_init_ec2_executor():
+def test_init_ec2_executor(executor):
     """Tests whether executor attributes are correctly constructed"""
 
-    assert ec2_exec.username == MOCK_USERNAME
-    assert ec2_exec.profile == MOCK_PROFILE
+    assert executor.username == MOCK_USERNAME
+    assert executor.profile == MOCK_PROFILE
 
 
 @pytest.mark.parametrize(

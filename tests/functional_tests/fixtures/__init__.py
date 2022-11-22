@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2021 Agnostiq Inc.
 #
 # This file is part of Covalent.
@@ -17,28 +19,3 @@
 # FITNESS FOR A PARTICULAR PURPOSE. See the License for more details.
 #
 # Relief from the License may be granted by purchasing a commercial license.
-
-[tool.black]
-target_version = ['py38']
-line-length = 99
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.tox
-  | \.venv
-)/
-'''
-
-[tool.isort]
-py_version = 38
-line_length = 99
-multi_line_output = 3
-include_trailing_comma = true
-profile = 'black'
-skip_gitignore = true
-
-[tool.pytest.ini_options]
-markers = [
-    "functional_tests: marks tests that are to be run in the functional tests ci pipeline"
-]
