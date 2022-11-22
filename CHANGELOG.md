@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
-## [0.11.0] - 2022-11-22
-
 ### Changed
 
 - Removed executor defaults for boto3 session args
+
+## [0.11.0] - 2022-11-22
 
 ### Changed
 
