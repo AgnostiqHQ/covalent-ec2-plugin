@@ -170,7 +170,9 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         # locks or to ensure that terraform init is run just once)
         subprocess.run(["terraform init"], cwd=self._TF_DIR, shell=True, check=True)
 
-        region = boto3.Session(**self.boto_session_options()).region_name
+        boto_session = boto3.Session(**self.boto_session_options())
+        profile = boto_session.profile_name
+        region = boto_session.region_name
 
         # Apply Terraform Plan
         base_cmd = [
@@ -181,6 +183,8 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         ]
 
         self.infra_vars = [
+            f"-var=aws_region={region}",
+            f"-var=aws_profile={profile}",
             "-var=name=covalent-task-{dispatch_id}-{node_id}".format(
                 dispatch_id=task_metadata["dispatch_id"],
                 node_id=task_metadata["node_id"],
@@ -190,13 +194,6 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             f"-var=key_file={self.ssh_key_file}",
             f"-var=key_name={self.key_name}",
         ]
-
-        self.infra_vars += [
-            f"-var=aws_region={region}",
-        ]
-
-        if self.profile:
-            self.infra_vars += [f"-var=aws_profile={self.profile}"]
 
         if self.credentials_file:
             self.infra_vars += [f"-var=aws_credentials={self.credentials_file}"]
