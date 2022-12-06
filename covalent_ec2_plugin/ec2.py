@@ -174,6 +174,12 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         profile = boto_session.profile_name
         region = boto_session.region_name
 
+        # moved validaiton of ssh_key_file here so SSH executor calls _validate_credentials from AWSExecutor
+        if not Path(self.ssh_key_file).expanduser().resolve().exists():
+            raise FileNotFoundError(
+                f"The instance key file '{self.ssh_key_file}' does not exist. Please set ssh_key_file executor argument."
+            )
+
         # Apply Terraform Plan
         base_cmd = [
             "terraform",
@@ -236,25 +242,3 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         app_log.debug(f"Running teardown Terraform command: {cmd}")
 
         await self._run_async_subprocess(cmd, cwd=self._TF_DIR, log_output=True)
-
-    async def _validate_credentials(self) -> Union[Dict[str, str], bool]:
-        """
-        Validate key pair and credentials file used to authenticate to AWS and EC2
-
-        Args:
-            None
-        Returns:
-            boolean indicating if key pair and credentials file exist
-        Raises:
-            FileNotFoundError: if either key pair or credentials file do not exist.
-        """
-
-        if not Path(self.ssh_key_file).expanduser().resolve().exists():
-            raise FileNotFoundError(f"The instance key file '{self.ssh_key_file}' does not exist.")
-
-        if not Path(self.credentials_file).expanduser().resolve().exists():
-            raise FileNotFoundError(
-                f"The AWS credentials file '{str(Path(self.credentials_file).resolve())}' does not exist."
-            )
-
-        return True
