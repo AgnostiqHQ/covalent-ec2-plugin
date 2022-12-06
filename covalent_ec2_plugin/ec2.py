@@ -27,6 +27,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Tuple, Union
 
+import boto3
 from covalent._shared_files import logger
 from covalent._shared_files.config import get_config
 from covalent_aws_plugins import AWSExecutor
@@ -169,7 +170,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         # locks or to ensure that terraform init is run just once)
         subprocess.run(["terraform init"], cwd=self._TF_DIR, shell=True, check=True)
 
-        # await self._run_async_subprocess(["terraform", "init"], cwd=self._TF_DIR, log_output=True)
+        region = boto3.Session(**self.boto_session_options()).region_name
 
         # Apply Terraform Plan
         base_cmd = [
@@ -190,10 +191,9 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             f"-var=key_name={self.key_name}",
         ]
 
-        if self.region:
-            self.infra_vars += [
-                f"-var=aws_region={self.region}",
-            ]
+        self.infra_vars += [
+            f"-var=aws_region={region}",
+        ]
 
         if self.profile:
             self.infra_vars += [f"-var=aws_profile={self.profile}"]
