@@ -177,7 +177,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         # moved validaiton of ssh_key_file here so SSH executor calls _validate_credentials from AWSExecutor
         if not Path(self.ssh_key_file).expanduser().resolve().exists():
             raise FileNotFoundError(
-                f"The instance key file '{self.ssh_key_file}' does not exist. Please set ssh_key_file executor argument."
+                f"The SSH key file (associated with EC2 key pair) '{self.ssh_key_file}' does not exist. Please set ssh_key_file executor argument."
             )
 
         # Apply Terraform Plan
