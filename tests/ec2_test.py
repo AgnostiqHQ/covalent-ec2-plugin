@@ -84,43 +84,59 @@ async def test_teardown(executor: ec2.EC2Executor, mocker: mock, tmp_path: Path)
     run_async_process_mock.assert_called_once()
 
 
-# @pytest.mark.parametrize(
-#     "does_aws_credentials_exist, does_ssh_key_exist",
-#     [(False, False), (False, True), (True, True), (True, False)],
-# )
-# @pytest.mark.asyncio
-# async def test_validate_credentials(
-#     does_aws_credentials_exist, does_ssh_key_exist, tmp_path: Path
-# ):
-#     """Test validation of key file and credentials."""
+@pytest.mark.parametrize(
+    "does_ssh_key_exist",
+    [(False), (True)],
+)
+@pytest.mark.asyncio
+async def test_setup(executor: ec2.EC2Executor, mocker: mock, does_ssh_key_exist, tmp_path: Path):
+    """Test validation of key file and setup."""
 
-#     aws_credentials_path = "/some/path/that/does/not/exist"
-#     ssh_key_file = "/some/path/that/does/not/exist"
+    MOCK_TF_VAR_OUTPUT = "mocked_tf_output"
 
-#     if does_aws_credentials_exist:
-#         aws_credentials_path = tmp_path / "aws_credentials"
-#         aws_credentials_path.touch()
-#         aws_credentials_path = str(aws_credentials_path)
+    mock_task_metadata = {"dispatch_id": "123", "node_id": 1}
+    ssh_key_file = tmp_path / "ssh_key"
+    executor.ssh_key_file = str(ssh_key_file)
 
-#     if does_ssh_key_exist:
-#         ssh_key_file = tmp_path / "ssh_key"
-#         ssh_key_file.touch()
-#         ssh_key_file = str(ssh_key_file)
+    state_file = tmp_path / "state.tfstate"
+    state_file.touch()
 
-#     mock_exec = ct.executor.EC2Executor(
-#         profile=MOCK_PROFILE, ssh_key_file=ssh_key_file, credentials_file=aws_credentials_path
-#     )
+    boto3_mock = mocker.patch("covalent_ec2_plugin.ec2.boto3")
+    subprocess_mock: mock.MagicMock = mocker.patch("covalent_ec2_plugin.ec2.subprocess")
 
-#     if does_aws_credentials_exist and does_ssh_key_exist:
-#         try:
-#             await mock_exec._validate_credentials()
-#         except:
-#             pytest.fail(
-#                 "Validate credentials should not throw an error if both aws credentials & ssh key exist."
-#             )
-#     else:
-#         with pytest.raises(FileNotFoundError) as re:
-#             await mock_exec._validate_credentials()
+    run_async_process_mock = mock.AsyncMock()
+    get_tf_output_mock = mock.AsyncMock()
+    get_tf_output_mock.return_value = MOCK_TF_VAR_OUTPUT
+
+    mocker.patch(
+        "covalent_ec2_plugin.ec2.EC2Executor._run_async_subprocess",
+        side_effect=run_async_process_mock,
+    )
+    mocker.patch(
+        "covalent_ec2_plugin.ec2.EC2Executor._get_tf_output",
+        side_effect=get_tf_output_mock,
+    )
+
+    mocker.patch(
+        "covalent_ec2_plugin.ec2.EC2Executor._get_tf_statefile_path", return_value=str(state_file)
+    )
+
+    if does_ssh_key_exist:
+        ssh_key_file.touch()
+
+    if does_ssh_key_exist:
+        try:
+            await executor.setup(mock_task_metadata)
+            assert executor.username == MOCK_TF_VAR_OUTPUT
+            assert executor.hostname == MOCK_TF_VAR_OUTPUT
+            assert executor.remote_cache == MOCK_TF_VAR_OUTPUT
+            subprocess_mock.run.assert_called_once()
+            run_async_process_mock.assert_called_once()
+        except FileNotFoundError:
+            pytest.fail("Setup should not throw an error if the ssh key file exists.")
+    else:
+        with pytest.raises(FileNotFoundError):
+            await executor.setup(mock_task_metadata)
 
 
 def test_upload_task():
