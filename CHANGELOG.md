@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+## [0.13.0] - 2023-01-19
+
 ### Changed
 
 - Moved EC2 plugin specific validation to setup (checking key file existance)
