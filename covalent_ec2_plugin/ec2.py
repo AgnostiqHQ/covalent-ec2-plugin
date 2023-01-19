@@ -104,10 +104,14 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             **kwargs,
         )
 
+        # as executor instance is reconstructed the below values are seemingly lost, added back here as a temp fix
         self.profile = profile or get_config("executors.ec2.profile")
+        self.region = region or get_config("executors.ec2.region")
+        self.credentials_file = credentials_file or get_config("executors.ec2.credentials_file")
+
         self.key_name = (
             key_name
-            or kwargs.get("ssh_key_file", "").split("/")[-1]
+            or kwargs.get("ssh_key_file", "").split("/")[-1].split(".")[0]
             or get_config("executors.ec2.key_name")
         )
         self.instance_type = instance_type or get_config("executors.ec2.instance_type")
