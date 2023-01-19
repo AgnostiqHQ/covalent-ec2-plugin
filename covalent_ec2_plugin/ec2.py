@@ -27,6 +27,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Tuple, Union
 
+import boto3
 from covalent._shared_files import logger
 from covalent._shared_files.config import get_config
 from covalent_aws_plugins import AWSExecutor
@@ -103,10 +104,14 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             **kwargs,
         )
 
+        # as executor instance is reconstructed the below values are seemingly lost, added back here as a temp fix
         self.profile = profile or get_config("executors.ec2.profile")
+        self.region = region or get_config("executors.ec2.region")
+        self.credentials_file = credentials_file or get_config("executors.ec2.credentials_file")
+
         self.key_name = (
             key_name
-            or kwargs.get("ssh_key_file", "").split("/")[-1]
+            or kwargs.get("ssh_key_file", "").split("/")[-1].split(".")[0]
             or get_config("executors.ec2.key_name")
         )
         self.instance_type = instance_type or get_config("executors.ec2.instance_type")
@@ -169,7 +174,15 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         # locks or to ensure that terraform init is run just once)
         subprocess.run(["terraform init"], cwd=self._TF_DIR, shell=True, check=True)
 
-        # await self._run_async_subprocess(["terraform", "init"], cwd=self._TF_DIR, log_output=True)
+        boto_session = boto3.Session(**self.boto_session_options())
+        profile = boto_session.profile_name
+        region = boto_session.region_name
+
+        # moved validaiton of ssh_key_file here so SSH executor calls _validate_credentials from AWSExecutor
+        if not Path(self.ssh_key_file).expanduser().resolve().exists():
+            raise FileNotFoundError(
+                f"The SSH key file (associated with EC2 key pair) '{self.ssh_key_file}' does not exist. Please set ssh_key_file executor argument."
+            )
 
         # Apply Terraform Plan
         base_cmd = [
@@ -180,6 +193,8 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         ]
 
         self.infra_vars = [
+            f"-var=aws_region={region}",
+            f"-var=aws_profile={profile}",
             "-var=name=covalent-task-{dispatch_id}-{node_id}".format(
                 dispatch_id=task_metadata["dispatch_id"],
                 node_id=task_metadata["node_id"],
@@ -189,14 +204,6 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             f"-var=key_file={self.ssh_key_file}",
             f"-var=key_name={self.key_name}",
         ]
-
-        if self.region:
-            self.infra_vars += [
-                f"-var=aws_region={self.region}",
-            ]
-
-        if self.profile:
-            self.infra_vars += [f"-var=aws_profile={self.profile}"]
 
         if self.credentials_file:
             self.infra_vars += [f"-var=aws_credentials={self.credentials_file}"]
@@ -239,25 +246,3 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         app_log.debug(f"Running teardown Terraform command: {cmd}")
 
         await self._run_async_subprocess(cmd, cwd=self._TF_DIR, log_output=True)
-
-    async def _validate_credentials(self) -> Union[Dict[str, str], bool]:
-        """
-        Validate key pair and credentials file used to authenticate to AWS and EC2
-
-        Args:
-            None
-        Returns:
-            boolean indicating if key pair and credentials file exist
-        Raises:
-            FileNotFoundError: if either key pair or credentials file do not exist.
-        """
-
-        if not Path(self.ssh_key_file).expanduser().resolve().exists():
-            raise FileNotFoundError(f"The instance key file '{self.ssh_key_file}' does not exist.")
-
-        if not Path(self.credentials_file).expanduser().resolve().exists():
-            raise FileNotFoundError(
-                f"The AWS credentials file '{str(Path(self.credentials_file).resolve())}' does not exist."
-            )
-
-        return True

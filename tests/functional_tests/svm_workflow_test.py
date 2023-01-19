@@ -1,8 +1,6 @@
 import covalent as ct
 import pytest
 
-from tests.functional_tests.fixtures.executor import executor
-
 deps_pip = ct.DepsPip(packages=["numpy==1.22.4", "scikit-learn==1.1.2"])
 
 import covalent as ct
@@ -21,7 +19,7 @@ def test_svm_model():
         iris.target = iris.target[perm]
         return iris.data, iris.target
 
-    @ct.electron(executor=executor, deps_pip=deps_pip)
+    @ct.electron(executor="ec2", deps_pip=deps_pip)
     def train_svm(data, C, gamma):
         X, y = data
         clf = svm.SVC(C=C, gamma=gamma)

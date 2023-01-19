@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed references to `.env` file in the functional test README.
 
+## [0.13.0] - 2023-01-19
+
+### Changed
+
+- Moved EC2 plugin specific validation to setup (checking key file existance)
+- Parsing region and profile from boto3 session (determined by AWS Base Executor)
+- Removed functional test executor instance in favour of config file configuration
+
 ## [0.12.0] - 2022-11-22
 
 ### Changed
