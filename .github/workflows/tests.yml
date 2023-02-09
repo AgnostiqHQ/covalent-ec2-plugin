@@ -99,6 +99,10 @@ jobs:
         with:
           semver_only: true
 
+      - name: check dir
+        run: |
+          ls -lah
+
       - name: Push to main
         id: push
         if: github.ref == 'refs/heads/develop' && matrix.os == 'ubuntu-latest' && matrix.container == 'python:3.8-buster'
