@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Tests workflow.
+- Centos test workflow by updating git version.
+- License checker workflow.
 
 ## [0.13.0] - 2023-01-19
 
