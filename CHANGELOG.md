@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Changed
+
+- Update Covalent version in the ec2 image.
+
 ## [0.13.1] - 2023-02-09
 
 ### Fixed
