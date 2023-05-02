@@ -189,13 +189,13 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             self.key_name = FALLBACK_KEYPAIR_NAME
             self.ssh_key_file = Path(self.ssh_key_file).parent / f"{self.key_name}.pem"
 
-            # Try to import the key pair/ssh key file that might've been created earlier            
+            # Try to import the key pair/ssh key file that might've been created earlier
             # If those don't exist, create the key pair and save the key material to the ssh_key_file
             if not Path(self.ssh_key_file).exists():
                 key_pair = ec2.create_key_pair(KeyName=self.key_name)
                 with open(self.ssh_key_file, "w") as f:
                     f.write(key_pair["KeyMaterial"])
-            
+
             # raise FileNotFoundError(
             #     f"The SSH key file (associated with EC2 key pair) '{self.ssh_key_file}' does not exist. Please set ssh_key_file executor argument."
             # )
