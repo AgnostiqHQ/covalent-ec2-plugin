@@ -154,9 +154,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         return proc, stdout, stderr
 
     def _get_tf_statefile_path(self, task_metadata: Dict) -> str:
-        state_file = os.path.join(
-            self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
-        )
+        state_file = f"{self.cache_dir}/ec2-{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
         return state_file
 
     async def _get_tf_output(self, var: str, state_file: str) -> str:
@@ -171,32 +169,29 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         """
 
-        state_file = self._get_tf_statefile_path(task_metadata)
-
         # Init Terraform (doing this in a blocking manner to avoid race conditions during init, better way would to be use asyncio
         # locks or to ensure that terraform init is run just once)
         subprocess.run(["terraform init"], cwd=self._TF_DIR, shell=True, check=True)
+
+        state_file = self._get_tf_statefile_path(task_metadata)
 
         boto_session = boto3.Session(**self.boto_session_options())
         profile = boto_session.profile_name
         region = boto_session.region_name
 
-        # moved validation of ssh_key_file here so SSH executor calls _validate_credentials from AWSExecutor
-        # Another reason to keep this is for backwards compatibility, i.e some users might still be passing
-        # `ssh_key_file` keyword argument to this executor
-        if not Path(self.ssh_key_file).expanduser().resolve().exists():
+        ec2 = boto_session.client("ec2")
+        self.key_name = FALLBACK_KEYPAIR_NAME
+        self.ssh_key_file = str(
+            Path(FALLBACK_SSH_HOME).expanduser().resolve() / f"{self.key_name}.pem"
+        )
 
-            ec2 = boto_session.client("ec2")
-            self.key_name = FALLBACK_KEYPAIR_NAME
-            self.ssh_key_file = Path(FALLBACK_SSH_HOME) / f"{self.key_name}.pem"
-
-            # Try to import the key pair/ssh key file that might've been created earlier
-            # If those don't exist, create the key pair and save the key material to the ssh_key_file
-            if not Path(self.ssh_key_file).exists():
-                key_pair = ec2.create_key_pair(KeyName=self.key_name)
-                with open(self.ssh_key_file, "w") as f:
-                    f.write(key_pair["KeyMaterial"])
-                os.chmod(self.ssh_key_file, 0o400)
+        # Try to import the key pair/ssh key file that might've been created earlier
+        # If those don't exist, create the key pair and save the key material to the ssh_key_file
+        if not Path(self.ssh_key_file).exists():
+            key_pair = ec2.create_key_pair(KeyName=self.key_name)
+            with open(self.ssh_key_file, "w") as f:
+                f.write(str(key_pair["KeyMaterial"]))
+            os.chmod(self.ssh_key_file, 0o400)
 
         # Apply Terraform Plan
         base_cmd = [
@@ -209,10 +204,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         self.infra_vars = [
             f"-var=aws_region={region}",
             f"-var=aws_profile={profile}",
-            "-var=name=covalent-task-{dispatch_id}-{node_id}".format(
-                dispatch_id=task_metadata["dispatch_id"],
-                node_id=task_metadata["node_id"],
-            ),
+            f"-var=name=covalent-ec2-task-{task_metadata['dispatch_id']}-{task_metadata['node_id']}",
             f"-var=instance_type={self.instance_type}",
             f"-var=disk_size={self.volume_size}",
             f"-var=key_file={self.ssh_key_file}",
@@ -260,3 +252,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         app_log.debug(f"Running teardown Terraform command: {cmd}")
 
         await self._run_async_subprocess(cmd, cwd=self._TF_DIR, log_output=True)
+
+        # Delete the state file
+        os.remove(state_file)
+        os.remove(f"{state_file}.backup")
