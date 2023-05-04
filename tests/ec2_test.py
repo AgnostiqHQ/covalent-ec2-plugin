@@ -53,50 +53,12 @@ def test_init_ec2_executor(executor):
 
 
 @pytest.mark.asyncio
-async def test_teardown(executor: ec2.EC2Executor, mocker: mock, tmp_path: Path):
-    mock_task_metadata = {"dispatch_id": "123", "node_id": 1}
-
-    state_file = tmp_path / "state.tfstate"
-    not_existing_state_file = tmp_path / "dne.tfstate"
-    state_file.touch()
-
-    executor.infra_vars = ["-var='mock_var=123'"]
-
-    run_async_process_mock = mock.AsyncMock()
-    mocker.patch(
-        "covalent_ec2_plugin.ec2.EC2Executor._run_async_subprocess",
-        side_effect=run_async_process_mock,
-    )
-
-    # test failure if tfstate does not exist
-    mocker.patch(
-        "covalent_ec2_plugin.ec2.EC2Executor._get_tf_statefile_path",
-        return_value=str(not_existing_state_file),
-    )
-    with pytest.raises(FileNotFoundError):
-        await executor.teardown(mock_task_metadata)
-
-    mocker.patch(
-        "covalent_ec2_plugin.ec2.EC2Executor._get_tf_statefile_path", return_value=str(state_file)
-    )
-    await executor.teardown(mock_task_metadata)
-
-    run_async_process_mock.assert_called_once()
-
-
-@pytest.mark.parametrize(
-    "does_ssh_key_exist",
-    [(False), (True)],
-)
-@pytest.mark.asyncio
-async def test_setup(executor: ec2.EC2Executor, mocker: mock, does_ssh_key_exist, tmp_path: Path):
+async def test_setup(executor: ec2.EC2Executor, mocker: mock, tmp_path: Path):
     """Test validation of key file and setup."""
 
     MOCK_TF_VAR_OUTPUT = "mocked_tf_output"
 
     mock_task_metadata = {"dispatch_id": "123", "node_id": 1}
-    ssh_key_file = tmp_path / "ssh_key"
-    executor.ssh_key_file = str(ssh_key_file)
 
     state_file = tmp_path / "state.tfstate"
     state_file.touch()
@@ -121,22 +83,79 @@ async def test_setup(executor: ec2.EC2Executor, mocker: mock, does_ssh_key_exist
         "covalent_ec2_plugin.ec2.EC2Executor._get_tf_statefile_path", return_value=str(state_file)
     )
 
-    if does_ssh_key_exist:
-        ssh_key_file.touch()
+    ec2_client_mock = boto3_mock.Session.return_value.client.return_value
 
-    if does_ssh_key_exist:
-        try:
-            await executor.setup(mock_task_metadata)
-            assert executor.username == MOCK_TF_VAR_OUTPUT
-            assert executor.hostname == MOCK_TF_VAR_OUTPUT
-            assert executor.remote_cache == MOCK_TF_VAR_OUTPUT
-            subprocess_mock.run.assert_called_once()
-            run_async_process_mock.assert_called_once()
-        except FileNotFoundError:
-            pytest.fail("Setup should not throw an error if the ssh key file exists.")
-    else:
-        with pytest.raises(FileNotFoundError):
-            await executor.setup(mock_task_metadata)
+    mock_key_name = ec2.EC2_KEYPAIR_NAME
+
+    ec2_ssh_dir = Path(ec2.EC2_SSH_DIR).expanduser().resolve()
+
+    mocker.patch("covalent_ec2_plugin.ec2.Path.mkdir", return_value=ec2_ssh_dir)
+    mock_ssh_key_file = str(ec2_ssh_dir / f"{mock_key_name}.pem")
+
+    mocked_key_pair = {"KeyMaterial": "mocked_key_material"}
+    ec2_client_mock.create_key_pair.return_value = mocked_key_pair
+
+    os_chmod_mock = mocker.patch("covalent_ec2_plugin.ec2.os.chmod")
+
+    mocker.patch("covalent_ec2_plugin.ec2.Path.exists", return_value=False)
+
+    with mock.patch("builtins.open", mock.mock_open()) as mocked_open:
+
+        await executor.setup(mock_task_metadata)
+
+        ec2_client_mock.create_key_pair.assert_called_with(KeyName=mock_key_name)
+
+        file_handle = mocked_open()
+        file_handle.write.assert_called_with(mocked_key_pair["KeyMaterial"])
+
+    assert executor.username == MOCK_TF_VAR_OUTPUT
+    assert executor.hostname == MOCK_TF_VAR_OUTPUT
+    assert executor.remote_cache == MOCK_TF_VAR_OUTPUT
+    subprocess_mock.run.assert_called_once()
+    run_async_process_mock.assert_called_once()
+
+    os_chmod_mock.assert_called_with(mock_ssh_key_file, 0o400)
+
+
+@pytest.mark.asyncio
+async def test_teardown(executor: ec2.EC2Executor, mocker: mock, tmp_path: Path):
+    mock_task_metadata = {"dispatch_id": "123", "node_id": 1}
+
+    state_file = tmp_path / "state.tfstate"
+    not_existing_state_file = str(tmp_path / "dne.tfstate")
+
+    state_file.touch()
+    state_file = str(state_file)
+
+    executor.infra_vars = ["-var='mock_var=123'"]
+
+    run_async_process_mock = mock.AsyncMock()
+    mocker.patch(
+        "covalent_ec2_plugin.ec2.EC2Executor._run_async_subprocess",
+        side_effect=run_async_process_mock,
+    )
+
+    # test failure if tfstate does not exist
+    mocker.patch(
+        "covalent_ec2_plugin.ec2.EC2Executor._get_tf_statefile_path",
+        return_value=not_existing_state_file,
+    )
+    with pytest.raises(FileNotFoundError):
+        await executor.teardown(mock_task_metadata)
+
+    mocker.patch(
+        "covalent_ec2_plugin.ec2.EC2Executor._get_tf_statefile_path",
+        return_value=state_file,
+    )
+
+    mock_os_remove = mocker.patch("covalent_ec2_plugin.ec2.os.remove")
+
+    await executor.teardown(mock_task_metadata)
+
+    run_async_process_mock.assert_called_once()
+
+    mock_os_remove.assert_any_call(state_file)
+    mock_os_remove.assert_any_call(f"{state_file}.backup")
 
 
 def test_upload_task():

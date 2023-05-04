@@ -38,7 +38,8 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"]
 }
 
-resource "aws_instance" "covalent_svc_instance" {
+
+resource "aws_instance" "covalent_ec2_instance" {
 
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
@@ -79,7 +80,9 @@ resource "null_resource" "deps_install" {
       "echo \"conda activate covalent\" >> $HOME/.bashrc",
       "conda activate covalent",
       "echo 'Installing Covalent...'",
-      "pip install covalent==0.202.0",
+
+      # TODO: Update to a variable version
+      "pip install covalent==${var.covalent_version}",
       "chmod +x /tmp/script.sh",
       "sudo bash /tmp/script.sh",
       "echo ok"
@@ -90,6 +93,6 @@ resource "null_resource" "deps_install" {
     type        = "ssh"
     user        = local.username
     private_key = file(var.key_file) # Path to a valid key file
-    host        = aws_instance.covalent_svc_instance.public_ip
+    host        = aws_instance.covalent_ec2_instance.public_ip
   }
 }

@@ -54,6 +54,12 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
     }
 )
 
+EC2_KEYPAIR_NAME = "covalent-ec2-executor-keypair"
+EC2_SSH_DIR = "~/.ssh/covalent"
+
+# TODO: Remove this once AWSExecutor has a `covalent_version` attribute
+TEMP_COVALENT_VERSION = "0.221.1rc0"
+
 
 class EC2Executor(SSHExecutor, AWSExecutor):
     """
@@ -119,6 +125,10 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         self.vpc = vpc or get_config("executors.ec2.vpc")
         self.subnet = subnet or get_config("executors.ec2.subnet")
 
+        # TODO: Remove this once AWSExecutor has a `covalent_version` attribute
+        # Setting covalent version to be used in the EC2 instance
+        self.covalent_version = TEMP_COVALENT_VERSION
+
     async def _run_async_subprocess(self, cmd: List[str], cwd=None, log_output: bool = False):
 
         proc = await asyncio.create_subprocess_shell(
@@ -151,9 +161,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         return proc, stdout, stderr
 
     def _get_tf_statefile_path(self, task_metadata: Dict) -> str:
-        state_file = os.path.join(
-            self.cache_dir, f"{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
-        )
+        state_file = f"{self.cache_dir}/ec2-{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
         return state_file
 
     async def _get_tf_output(self, var: str, state_file: str) -> str:
@@ -168,21 +176,45 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         """
 
-        state_file = self._get_tf_statefile_path(task_metadata)
-
         # Init Terraform (doing this in a blocking manner to avoid race conditions during init, better way would to be use asyncio
         # locks or to ensure that terraform init is run just once)
         subprocess.run(["terraform init"], cwd=self._TF_DIR, shell=True, check=True)
+
+        state_file = self._get_tf_statefile_path(task_metadata)
 
         boto_session = boto3.Session(**self.boto_session_options())
         profile = boto_session.profile_name
         region = boto_session.region_name
 
-        # moved validaiton of ssh_key_file here so SSH executor calls _validate_credentials from AWSExecutor
-        if not Path(self.ssh_key_file).expanduser().resolve().exists():
-            raise FileNotFoundError(
-                f"The SSH key file (associated with EC2 key pair) '{self.ssh_key_file}' does not exist. Please set ssh_key_file executor argument."
-            )
+        ec2 = boto_session.client("ec2")
+        self.key_name = EC2_KEYPAIR_NAME
+
+        # Create dir if it doesn't exist
+        ec2_ssh_dir = Path(EC2_SSH_DIR).expanduser().resolve()
+        ec2_ssh_dir.mkdir(parents=True, exist_ok=True)
+
+        self.ssh_key_file = str(ec2_ssh_dir / f"{self.key_name}.pem")
+
+        # Try to import the key pair/ssh key file that might've been created earlier
+        # If those don't exist, create the key pair and save the key material to the ssh_key_file
+        if not Path(self.ssh_key_file).exists():
+            try:
+                key_pair = ec2.create_key_pair(KeyName=self.key_name)
+            except Exception as e:
+                if e.response["Error"]["Code"] != "InvalidKeyPair.Duplicate":
+                    raise
+
+                app_log.warning(
+                    f"Key pair {self.key_name} already exists, deleting and creating a new one"
+                )
+                ec2.delete_key_pair(KeyName=self.key_name)
+                key_pair = ec2.create_key_pair(KeyName=self.key_name)
+
+            with open(self.ssh_key_file, "w") as f:
+                f.write(str(key_pair["KeyMaterial"]))
+
+            # Set permissions on the key file to 400
+            os.chmod(self.ssh_key_file, 0o400)
 
         # Apply Terraform Plan
         base_cmd = [
@@ -195,14 +227,12 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         self.infra_vars = [
             f"-var=aws_region={region}",
             f"-var=aws_profile={profile}",
-            "-var=name=covalent-task-{dispatch_id}-{node_id}".format(
-                dispatch_id=task_metadata["dispatch_id"],
-                node_id=task_metadata["node_id"],
-            ),
+            f"-var=name=covalent-ec2-task-{task_metadata['dispatch_id']}-{task_metadata['node_id']}",
             f"-var=instance_type={self.instance_type}",
             f"-var=disk_size={self.volume_size}",
             f"-var=key_file={self.ssh_key_file}",
             f"-var=key_name={self.key_name}",
+            f"-var=covalent_version={self.covalent_version}",
         ]
 
         if self.credentials_file:
@@ -246,3 +276,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         app_log.debug(f"Running teardown Terraform command: {cmd}")
 
         await self._run_async_subprocess(cmd, cwd=self._TF_DIR, log_output=True)
+
+        # Delete the state file
+        os.remove(state_file)
+        os.remove(f"{state_file}.backup")

@@ -19,7 +19,7 @@
 # Relief from the License may be granted by purchasing a commercial license.
 
 variable "name" {
-  default     = "covalent-svc"
+  default     = "covalent-executor-ec2"
   description = "Name used to prefix AWS resources"
 }
 
@@ -81,4 +81,9 @@ variable "disk_size" {
 variable "key_file" {
   default     = ""
   description = "Private key used for SSH provisioner"
+}
+
+variable "covalent_version" {
+  default     = "0.202.0"
+  description = "Covalent version to install on the EC2 instance"
 }
