@@ -54,7 +54,7 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
     }
 )
 
-EC2_KEYPAIR_NAME = "covalent-ec2-keypair"
+EC2_KEYPAIR_NAME = "covalent-ec2-executor-keypair"
 EC2_SSH_DIR = "~/.ssh/covalent"
 
 # TODO: Remove this once AWSExecutor has a `covalent_version` attribute
