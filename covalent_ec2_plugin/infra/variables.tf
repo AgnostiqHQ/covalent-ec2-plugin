@@ -19,7 +19,7 @@
 # Relief from the License may be granted by purchasing a commercial license.
 
 variable "name" {
-  default     = "covalent-ec2"
+  default     = "covalent-executor-ec2"
   description = "Name used to prefix AWS resources"
 }
 
