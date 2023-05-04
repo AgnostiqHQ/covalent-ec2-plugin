@@ -191,7 +191,18 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         # Try to import the key pair/ssh key file that might've been created earlier
         # If those don't exist, create the key pair and save the key material to the ssh_key_file
         if not Path(self.ssh_key_file).exists():
-            key_pair = ec2.create_key_pair(KeyName=self.key_name)
+            try:
+                key_pair = ec2.create_key_pair(KeyName=self.key_name)
+            except Exception as e:
+                if e.response["Error"]["Code"] != "InvalidKeyPair.Duplicate":
+                    raise e
+
+                app_log.info(
+                    f"Key pair {self.key_name} already exists, deleting and creating a new one"
+                )
+                ec2.delete_key_pair(KeyName=self.key_name)
+                key_pair = ec2.create_key_pair(KeyName=self.key_name)
+
             with open(self.ssh_key_file, "w") as f:
                 f.write(str(key_pair["KeyMaterial"]))
             os.chmod(self.ssh_key_file, 0o400)
