@@ -198,7 +198,6 @@ class EC2Executor(SSHExecutor, AWSExecutor):
                     f.write(key_pair["KeyMaterial"])
                 os.chmod(self.ssh_key_file, 0o400)
 
-
         # Apply Terraform Plan
         base_cmd = [
             "terraform",

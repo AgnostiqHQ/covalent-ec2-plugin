@@ -159,7 +159,6 @@ async def test_setup(executor: ec2.EC2Executor, mocker: mock, does_ssh_key_exist
         os_chmod_mock.assert_called_with(mock_ssh_key_file, 0o400)
 
 
-
 def test_upload_task():
     pass
 
