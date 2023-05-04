@@ -57,6 +57,9 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
 EC2_KEYPAIR_NAME = "covalent-ec2-keypair"
 EC2_SSH_DIR = "~/.ssh/covalent"
 
+# TODO: Remove this once AWSExecutor has a `covalent_version` attribute
+TEMP_COVALENT_VERSION = "0.221.1rc0"
+
 
 class EC2Executor(SSHExecutor, AWSExecutor):
     """
@@ -121,6 +124,10 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         self.volume_size = volume_size or get_config("executors.ec2.volume_size")
         self.vpc = vpc or get_config("executors.ec2.vpc")
         self.subnet = subnet or get_config("executors.ec2.subnet")
+
+        # TODO: Remove this once AWSExecutor has a `covalent_version` attribute
+        # Setting covalent version to be used in the EC2 instance
+        self.covalent_version = TEMP_COVALENT_VERSION
 
     async def _run_async_subprocess(self, cmd: List[str], cwd=None, log_output: bool = False):
 
@@ -197,7 +204,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
                 if e.response["Error"]["Code"] != "InvalidKeyPair.Duplicate":
                     raise e
 
-                app_log.info(
+                app_log.warning(
                     f"Key pair {self.key_name} already exists, deleting and creating a new one"
                 )
                 ec2.delete_key_pair(KeyName=self.key_name)
@@ -205,6 +212,8 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
             with open(self.ssh_key_file, "w") as f:
                 f.write(str(key_pair["KeyMaterial"]))
+
+            # Set permissions on the key file to 400
             os.chmod(self.ssh_key_file, 0o400)
 
         # Apply Terraform Plan
@@ -223,6 +232,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             f"-var=disk_size={self.volume_size}",
             f"-var=key_file={self.ssh_key_file}",
             f"-var=key_name={self.key_name}",
+            f"-var=covalent_version={self.covalent_version}",
         ]
 
         if self.credentials_file:

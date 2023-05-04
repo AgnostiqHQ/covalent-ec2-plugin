@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
 
-- Now instead of throwing an error when an ssh key doesn't exist, EC2Executor will create the key pair, link it to AWS, and then use it to connect to the instance.
+- Now instead of throwing an error when an ssh key doesn't exist, EC2Executor will create the key pair, link it to AWS, and then use it to connect to the instance
+
+- Updated covalent version to use a variable instead of a hard-coded value
 
 ## [0.13.1] - 2023-02-09
 

@@ -82,3 +82,8 @@ variable "key_file" {
   default     = ""
   description = "Private key used for SSH provisioner"
 }
+
+variable "covalent_version" {
+  default     = "0.202.0"
+  description = "Covalent version to install on the EC2 instance"
+}

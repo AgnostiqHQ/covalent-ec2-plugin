@@ -82,7 +82,7 @@ resource "null_resource" "deps_install" {
       "echo 'Installing Covalent...'",
 
       # TODO: Update to a variable version
-      "pip install covalent==0.202.0",
+      "pip install covalent==${var.covalent_version}",
       "chmod +x /tmp/script.sh",
       "sudo bash /tmp/script.sh",
       "echo ok"
