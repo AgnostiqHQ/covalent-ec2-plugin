@@ -190,7 +190,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             self.key_name = FALLBACK_KEYPAIR_NAME
             self.ssh_key_file = Path(FALLBACK_SSH_HOME) / f"{self.key_name}.pem"
 
-            # Try to import the key pair/ssh key file that might've been created earlier            
+            # Try to import the key pair/ssh key file that might've been created earlier
             # If those don't exist, create the key pair and save the key material to the ssh_key_file
             if not Path(self.ssh_key_file).exists():
                 key_pair = ec2.create_key_pair(KeyName=self.key_name)
