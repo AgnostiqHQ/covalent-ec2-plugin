@@ -54,8 +54,8 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
     }
 )
 
-FALLBACK_KEYPAIR_NAME = "covalent-ec2-keypair"
-FALLBACK_SSH_HOME = "~/.ssh"
+EC2_KEYPAIR_NAME = "covalent-ec2-keypair"
+EC2_SSH_DIR = "~/.ssh/covalent"
 
 
 class EC2Executor(SSHExecutor, AWSExecutor):
@@ -180,10 +180,12 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         region = boto_session.region_name
 
         ec2 = boto_session.client("ec2")
-        self.key_name = FALLBACK_KEYPAIR_NAME
-        self.ssh_key_file = str(
-            Path(FALLBACK_SSH_HOME).expanduser().resolve() / f"{self.key_name}.pem"
-        )
+        self.key_name = EC2_KEYPAIR_NAME
+
+        # Create dir if it doesn't exist
+        ec2_ssh_dir = Path(EC2_SSH_DIR).expanduser().resolve().mkdir(parents=True, exist_ok=True)
+
+        self.ssh_key_file = str(ec2_ssh_dir / f"{self.key_name}.pem")
 
         # Try to import the key pair/ssh key file that might've been created earlier
         # If those don't exist, create the key pair and save the key material to the ssh_key_file

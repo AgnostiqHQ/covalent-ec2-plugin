@@ -85,10 +85,12 @@ async def test_setup(executor: ec2.EC2Executor, mocker: mock, tmp_path: Path):
 
     ec2_client_mock = boto3_mock.Session.return_value.client.return_value
 
-    mock_key_name = ec2.FALLBACK_KEYPAIR_NAME
-    mock_ssh_key_file = str(
-        Path(ec2.FALLBACK_SSH_HOME).expanduser().resolve() / f"{mock_key_name}.pem"
-    )
+    mock_key_name = ec2.EC2_KEYPAIR_NAME
+
+    ec2_ssh_dir = Path(ec2.EC2_SSH_DIR).expanduser().resolve()
+
+    mocker.patch("covalent_ec2_plugin.ec2.Path.mkdir", return_value=ec2_ssh_dir)
+    mock_ssh_key_file = str(ec2_ssh_dir / f"{mock_key_name}.pem")
 
     mocked_key_pair = {"KeyMaterial": "mocked_key_material"}
     ec2_client_mock.create_key_pair.return_value = mocked_key_pair
