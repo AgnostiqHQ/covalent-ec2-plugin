@@ -202,7 +202,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
                 key_pair = ec2.create_key_pair(KeyName=self.key_name)
             except Exception as e:
                 if e.response["Error"]["Code"] != "InvalidKeyPair.Duplicate":
-                    raise e
+                    raise
 
                 app_log.warning(
                     f"Key pair {self.key_name} already exists, deleting and creating a new one"
