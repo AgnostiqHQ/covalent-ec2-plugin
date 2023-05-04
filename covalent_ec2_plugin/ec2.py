@@ -55,6 +55,7 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
 )
 
 FALLBACK_KEYPAIR_NAME = "covalent-ec2-keypair"
+FALLBACK_SSH_HOME = "~/.ssh"
 
 
 class EC2Executor(SSHExecutor, AWSExecutor):
@@ -187,7 +188,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
             ec2 = boto_session.client("ec2")
             self.key_name = FALLBACK_KEYPAIR_NAME
-            self.ssh_key_file = Path(self.ssh_key_file).parent / f"{self.key_name}.pem"
+            self.ssh_key_file = Path(FALLBACK_SSH_HOME) / f"{self.key_name}.pem"
 
             # Try to import the key pair/ssh key file that might've been created earlier            
             # If those don't exist, create the key pair and save the key material to the ssh_key_file
@@ -195,10 +196,8 @@ class EC2Executor(SSHExecutor, AWSExecutor):
                 key_pair = ec2.create_key_pair(KeyName=self.key_name)
                 with open(self.ssh_key_file, "w") as f:
                     f.write(key_pair["KeyMaterial"])
-            
-            # raise FileNotFoundError(
-            #     f"The SSH key file (associated with EC2 key pair) '{self.ssh_key_file}' does not exist. Please set ssh_key_file executor argument."
-            # )
+                os.chmod(self.ssh_key_file, 0o400)
+
 
         # Apply Terraform Plan
         base_cmd = [

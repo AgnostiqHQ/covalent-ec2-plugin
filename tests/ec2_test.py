@@ -135,8 +135,29 @@ async def test_setup(executor: ec2.EC2Executor, mocker: mock, does_ssh_key_exist
         except FileNotFoundError:
             pytest.fail("Setup should not throw an error if the ssh key file exists.")
     else:
-        with pytest.raises(FileNotFoundError):
+        ec2_client_mock = boto3_mock.Session.return_value.client.return_value
+        
+        mock_key_name = ec2.FALLBACK_KEYPAIR_NAME
+        mock_ssh_key_file = Path(ec2.FALLBACK_SSH_HOME) / f"{mock_key_name}.pem"
+
+        mocked_key_pair = {"KeyMaterial": "mocked_key_material"}
+        ec2_client_mock.create_key_pair.return_value = mocked_key_pair
+
+        os_chmod_mock = mocker.patch("covalent_ec2_plugin.ec2.os.chmod")
+
+        mocker.patch("covalent_ec2_plugin.ec2.Path.exists", return_value=False)
+
+        with mock.patch("builtins.open", mock.mock_open()) as mocked_open:
+            
             await executor.setup(mock_task_metadata)
+            
+            ec2_client_mock.create_key_pair.assert_called_with(KeyName=mock_key_name)
+
+            file_handle = mocked_open()
+            file_handle.write.assert_called_with(mocked_key_pair["KeyMaterial"])
+        
+        os_chmod_mock.assert_called_with(mock_ssh_key_file, 0o400)
+
 
 
 def test_upload_task():
