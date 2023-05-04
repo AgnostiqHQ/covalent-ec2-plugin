@@ -183,7 +183,8 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         self.key_name = EC2_KEYPAIR_NAME
 
         # Create dir if it doesn't exist
-        ec2_ssh_dir = Path(EC2_SSH_DIR).expanduser().resolve().mkdir(parents=True, exist_ok=True)
+        ec2_ssh_dir = Path(EC2_SSH_DIR).expanduser().resolve()
+        ec2_ssh_dir.mkdir(parents=True, exist_ok=True)
 
         self.ssh_key_file = str(ec2_ssh_dir / f"{self.key_name}.pem")
 
