@@ -72,7 +72,14 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         subnet: (optional) AWS Subnet ID of any existing subnets if any.
         instance_type: (optional) AWS EC2 Instance type to provision for a given task. Default: t2.micro
         volume_size: (optional) The size in GB (integer) of the GP2 SSD disk to be provisioned with EC2 instance. Default: 8
-        kwargs: Key-word arguments to be passed to the parent class (SSHExecutor)
+        ssh_key_file: Filename of the private key used for authentication with the remote server.
+        cache_dir: Local cache directory used by this executor for temporary files.
+        remote_cache: Remote server cache directory used for temporary files.
+        python_path: The path to the Python 3 executable on the remote server.
+        run_local_on_ssh_fail: If True, and the execution fails to run on the remote server,
+            then the execution is run on the local machine.
+        poll_freq: Number of seconds to wait for before retrying the result poll
+        do_cleanup: Whether to delete all the intermediate files or not
     """
 
     _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "infra"))
@@ -90,13 +97,19 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         vpc: str = "",
         subnet: str = "",
         conda_env: str = "covalent",
-        **kwargs,
+        ssh_key_file: str = None,
+        cache_dir: str = None,
+        python_path: str = "",
+        remote_cache: str = "",
+        run_local_on_ssh_fail: bool = False,
+        poll_freq: int = 15,
+        do_cleanup: bool = True,
     ) -> None:
 
         username = username or get_config("executors.ec2.username")
         hostname = hostname or get_config("executors.ec2.hostname")
         profile = profile or get_config("executors.ec2.profile")
-        credentials_file or get_config("executors.ec2.credentials_file")
+        credentials_file = credentials_file or get_config("executors.ec2.credentials_file")
         region = region or get_config("executors.ec2.region")
 
         AWSExecutor.__init__(
@@ -107,7 +120,13 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             username=username,
             hostname=hostname,
             conda_env=conda_env,
-            **kwargs,
+            ssh_key_file=ssh_key_file,
+            cache_dir=cache_dir,
+            python_path=python_path,
+            remote_cache=remote_cache,
+            run_local_on_ssh_fail=run_local_on_ssh_fail,
+            poll_freq=poll_freq,
+            do_cleanup=do_cleanup,
         )
 
         # as executor instance is reconstructed the below values are seemingly lost, added back here as a temp fix
