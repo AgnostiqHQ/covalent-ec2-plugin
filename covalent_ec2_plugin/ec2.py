@@ -136,7 +136,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         self.key_name = (
             key_name
-            or kwargs.get("ssh_key_file", "").split("/")[-1].split(".")[0]
+            or (ssh_key_file.split("/")[-1].split(".")[0] if ssh_key_file else None)
             or get_config("executors.ec2.key_name")
         )
         self.instance_type = instance_type or get_config("executors.ec2.instance_type")
