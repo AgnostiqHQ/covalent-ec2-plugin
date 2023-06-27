@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated covalent version to use a variable instead of a hard-coded value
 
+- Updates __init__ signature kwargs replaced with parent for better documentation.
+
 ## [0.13.1] - 2023-02-09
 
 ### Fixed
