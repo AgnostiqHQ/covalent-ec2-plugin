@@ -21,7 +21,7 @@ import copy
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, List, Tuple, Union
+from typing import Dict, List
 
 import boto3
 from covalent._shared_files import logger
@@ -53,9 +53,6 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
 EC2_KEYPAIR_NAME = "covalent-ec2-executor-keypair"
 EC2_SSH_DIR = "~/.ssh/covalent"
 
-# TODO: Remove this once AWSExecutor has a `covalent_version` attribute
-TEMP_COVALENT_VERSION = "0.221.1rc0"
-
 
 class EC2Executor(SSHExecutor, AWSExecutor):
     """
@@ -76,6 +73,8 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             then the execution is run on the local machine.
         poll_freq: Number of seconds to wait for before retrying the result poll
         do_cleanup: Whether to delete all the intermediate files or not
+        covalent_version_to_install: Which version of covalent to be installed on the EC2 instance. Default: "==0.220.0.post2",
+            it can also include the extras if needed as "[qiskit, braket]==0.220.0.post2"
     """
 
     _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "infra"))
@@ -100,6 +99,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         run_local_on_ssh_fail: bool = False,
         poll_freq: int = 15,
         do_cleanup: bool = True,
+        covalent_version_to_install: str = "==0.220.0.post2",  # Current stable version
     ) -> None:
 
         username = username or get_config("executors.ec2.username")
@@ -142,7 +142,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         # TODO: Remove this once AWSExecutor has a `covalent_version` attribute
         # Setting covalent version to be used in the EC2 instance
-        self.covalent_version = TEMP_COVALENT_VERSION
+        self.covalent_version = covalent_version_to_install
 
     async def _run_async_subprocess(self, cmd: List[str], cwd=None, log_output: bool = False):
 
@@ -176,7 +176,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         return proc, stdout, stderr
 
     def _get_tf_statefile_path(self, task_metadata: Dict) -> str:
-        state_file = f"{self.cache_dir}/ec2-{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
+        state_file = f"{self._TF_DIR}/ec2-{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
         return state_file
 
     async def _get_tf_output(self, var: str, state_file: str) -> str:

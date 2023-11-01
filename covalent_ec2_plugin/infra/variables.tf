@@ -80,6 +80,6 @@ variable "key_file" {
 }
 
 variable "covalent_version" {
-  default     = "0.202.0"
+  default     = "==0.220.0.post2"
   description = "Covalent version to install on the EC2 instance"
 }
