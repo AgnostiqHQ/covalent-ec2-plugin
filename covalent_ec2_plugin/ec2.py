@@ -99,7 +99,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         run_local_on_ssh_fail: bool = False,
         poll_freq: int = 15,
         do_cleanup: bool = True,
-        covalent_version_to_install: str = "==0.220.0.post2",  # Current stable version
+        covalent_version_to_install: str = "",  # Current stable version
     ) -> None:
 
         username = username or get_config("executors.ec2.username")
