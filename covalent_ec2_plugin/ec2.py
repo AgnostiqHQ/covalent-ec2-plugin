@@ -23,6 +23,8 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List
 
+from pydantic import BaseModel
+
 import boto3
 from covalent._shared_files import logger
 from covalent._shared_files.config import get_config
@@ -49,6 +51,28 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
         "conda_env": "covalent",
     }
 )
+
+class ExecutorPluginDefaults(BaseModel):
+    profile:str= ""
+    credentials_file:str = ""
+    region:str = ""
+    instance_type:str= "t2.micro"
+    volume_size:str= "8"
+    vpc:str= ""
+    subnet:str= ""
+    key_name:str= ""
+    conda_env:str= "covalent"
+
+class ExecutorInfraDefaults(BaseModel):
+    profile:str= ""
+    credentials_file:str = ""
+    region:str = ""
+    instance_type:str= "t2.micro"
+    volume_size:str= "8"
+    vpc:str= ""
+    subnet:str= ""
+    key_name:str= ""
+    conda_env:str= "covalent"
 
 EC2_KEYPAIR_NAME = "covalent-ec2-executor-keypair"
 EC2_SSH_DIR = "~/.ssh/covalent"
@@ -77,7 +101,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             it can also include the extras if needed as "[qiskit, braket]==0.220.0.post2"
     """
 
-    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "infra"))
+    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "infra"))
 
     def __init__(
         self,
@@ -175,10 +199,8 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         return proc, stdout, stderr
 
-    def _get_tf_statefile_path(self, task_metadata: Dict) -> str:
-        state_file = (
-            f"{self._TF_DIR}/ec2-{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
-        )
+    def _get_tf_statefile_path(self) -> str:
+        state_file = f"{self._TF_DIR}/terraform.tfstate"
         return state_file
 
     async def _get_tf_output(self, var: str, state_file: str) -> str:
@@ -197,14 +219,14 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         # locks or to ensure that terraform init is run just once)
         subprocess.run(["terraform init"], cwd=self._TF_DIR, shell=True, check=True)
 
-        state_file = self._get_tf_statefile_path(task_metadata)
+        state_file = self._get_tf_statefile_path()
 
         boto_session = boto3.Session(**self.boto_session_options())
         profile = boto_session.profile_name
         region = boto_session.region_name
 
         ec2 = boto_session.client("ec2")
-        self.key_name = EC2_KEYPAIR_NAME
+        # self.key_name = EC2_KEYPAIR_NAME
 
         # Create dir if it doesn't exist
         ec2_ssh_dir = Path(EC2_SSH_DIR).expanduser().resolve()
@@ -279,8 +301,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
-
-        state_file = self._get_tf_statefile_path(task_metadata)
+        state_file = self._get_tf_statefile_path()
 
         if not os.path.exists(state_file):
             raise FileNotFoundError(

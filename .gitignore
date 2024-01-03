@@ -118,5 +118,8 @@ ipython_config.py
 *.ipynb
 
 # Terraform
-covalent_ec2_plugin/infra/.terraform.lock.hcl
-covalent_ec2_plugin/infra/.terraform
+**/.terraform/**
+**/*.tfstate*
+**/.terraform.lock.hcl
+**/*.tfvars
+**/*.plan

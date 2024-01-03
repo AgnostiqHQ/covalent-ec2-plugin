@@ -44,8 +44,8 @@ resource "aws_instance" "covalent_ec2_instance" {
   subnet_id                   = var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id
   associate_public_ip_address = true
 
-  key_name             = var.key_name # Name of a valid key pair
-  monitoring           = true
+  key_name   = var.key_name # Name of a valid key pair
+  monitoring = true
 
   root_block_device {
     volume_type = "gp2"
@@ -78,7 +78,7 @@ resource "null_resource" "deps_install" {
       "echo 'Installing Covalent...'",
 
       # TODO: Update to a variable version
-      "pip install \"covalent${var.covalent_version}\"",
+      "pip install \"covalent==${var.covalent_version}\"",
       "chmod +x /tmp/script.sh",
       "sudo bash /tmp/script.sh",
       "echo ok"
@@ -91,4 +91,23 @@ resource "null_resource" "deps_install" {
     private_key = file(var.key_file) # Path to a valid key file
     host        = aws_instance.covalent_ec2_instance.public_ip
   }
+}
+
+data "template_file" "executor_config" {
+  template = file("${path.module}/ec2.conf.tftpl")
+
+  vars = {
+    credentials = var.aws_credentials
+    profile     = var.aws_profile
+    region      = var.aws_region
+    key_name    = var.key_name
+    volume_size = var.disk_size
+    vpc         = var.vpc_id == "" ? module.vpc.vpc_id : var.vpc_id
+    subnet      = var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id
+  }
+}
+
+resource "local_file" "executor_config" {
+  content  = data.template_file.executor_config.rendered
+  filename = "${path.module}/ec2.conf"
 }
