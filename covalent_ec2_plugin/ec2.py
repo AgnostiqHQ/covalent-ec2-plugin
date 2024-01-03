@@ -228,7 +228,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         region = boto_session.region_name
 
         ec2 = boto_session.client("ec2")
-        # self.key_name = EC2_KEYPAIR_NAME
+        self.key_name = EC2_KEYPAIR_NAME
 
         # Create dir if it doesn't exist
         ec2_ssh_dir = Path(EC2_SSH_DIR).expanduser().resolve()
