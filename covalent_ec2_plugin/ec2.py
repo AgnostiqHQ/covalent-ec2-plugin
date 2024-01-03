@@ -51,27 +51,30 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
     }
 )
 
+
 class ExecutorPluginDefaults(BaseModel):
-    profile:str= ""
-    credentials_file:str = ""
-    region:str = ""
-    instance_type:str= "t2.micro"
-    volume_size:str= "8"
-    vpc:str= ""
-    subnet:str= ""
-    key_name:str= ""
-    conda_env:str= "covalent"
+    profile: str = ""
+    credentials_file: str = ""
+    region: str = ""
+    instance_type: str = "t2.micro"
+    volume_size: str = "8"
+    vpc: str = ""
+    subnet: str = ""
+    key_name: str = ""
+    conda_env: str = "covalent"
+
 
 class ExecutorInfraDefaults(BaseModel):
-    profile:str= ""
-    credentials_file:str = ""
-    region:str = ""
-    instance_type:str= "t2.micro"
-    volume_size:str= "8"
-    vpc:str= ""
-    subnet:str= ""
-    key_name:str= ""
-    conda_env:str= "covalent"
+    profile: str = ""
+    credentials_file: str = ""
+    region: str = ""
+    instance_type: str = "t2.micro"
+    volume_size: str = "8"
+    vpc: str = ""
+    subnet: str = ""
+    key_name: str = ""
+    conda_env: str = "covalent"
+
 
 EC2_KEYPAIR_NAME = "covalent-ec2-executor-keypair"
 EC2_SSH_DIR = "~/.ssh/covalent"
