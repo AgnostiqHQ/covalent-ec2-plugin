@@ -201,8 +201,8 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         return proc, stdout, stderr
 
-    def _get_tf_statefile_path(self) -> str:
-        state_file = f"{self._TF_DIR}/terraform.tfstate"
+    def _get_tf_statefile_path(self, task_metadata: Dict) -> str:
+        state_file = f"{self._TF_DIR}/ec2-{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
         return state_file
 
     async def _get_tf_output(self, var: str, state_file: str) -> str:
@@ -221,7 +221,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         # locks or to ensure that terraform init is run just once)
         subprocess.run(["terraform init"], cwd=self._TF_DIR, shell=True, check=True)
 
-        state_file = self._get_tf_statefile_path()
+        state_file = self._get_tf_statefile_path(task_metadata)
 
         boto_session = boto3.Session(**self.boto_session_options())
         profile = boto_session.profile_name
@@ -303,7 +303,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
-        state_file = self._get_tf_statefile_path()
+        state_file = self._get_tf_statefile_path(task_metadata)
 
         if not os.path.exists(state_file):
             raise FileNotFoundError(
