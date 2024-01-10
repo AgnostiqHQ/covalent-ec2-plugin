@@ -29,6 +29,7 @@ from covalent._shared_files.config import get_config
 from covalent_aws_plugins import AWSExecutor
 from covalent_ssh_plugin.ssh import _EXECUTOR_PLUGIN_DEFAULTS as _SSH_EXECUTOR_PLUGIN_DEFAULTS
 from covalent_ssh_plugin.ssh import SSHExecutor
+from pydantic import BaseModel
 
 executor_plugin_name = "EC2Executor"
 
@@ -49,6 +50,31 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
         "conda_env": "covalent",
     }
 )
+
+
+class ExecutorPluginDefaults(BaseModel):
+    profile: str = ""
+    credentials_file: str = ""
+    region: str = ""
+    instance_type: str = "t2.micro"
+    volume_size: str = "8"
+    vpc: str = ""
+    subnet: str = ""
+    key_name: str = ""
+    conda_env: str = "covalent"
+
+
+class ExecutorInfraDefaults(BaseModel):
+    profile: str = ""
+    credentials_file: str = ""
+    region: str = ""
+    instance_type: str = "t2.micro"
+    volume_size: str = "8"
+    vpc: str = ""
+    subnet: str = ""
+    key_name: str = ""
+    conda_env: str = "covalent"
+
 
 EC2_KEYPAIR_NAME = "covalent-ec2-executor-keypair"
 EC2_SSH_DIR = "~/.ssh/covalent"
@@ -77,7 +103,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             it can also include the extras if needed as "[qiskit, braket]==0.220.0.post2"
     """
 
-    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "infra"))
+    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "infra"))
 
     def __init__(
         self,
@@ -279,7 +305,6 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
-
         state_file = self._get_tf_statefile_path(task_metadata)
 
         if not os.path.exists(state_file):

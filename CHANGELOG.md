@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+## Changed
+
+- Moved the terraform files into **covalent_ec2_plugin/assets/infra** folder.
+- Minor modifications on the plugin core to handle the above folder changes.
+
+## Fixed
+
+- Fixed security group, enabling ec2 instances to connect to internet and download conda installation file.
+
+## Added
+
+- Added tftpl file to project configuration value
+
 ## [0.13.2] - 2023-11-01
 
 ## Changed
