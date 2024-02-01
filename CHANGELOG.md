@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+## Added
+
+- Generate random UUID for prefix variable to avoid name conflicting deployed resources
+
 ## Changed
 
 - Moved the terraform files into **covalent_ec2_plugin/assets/infra** folder.
