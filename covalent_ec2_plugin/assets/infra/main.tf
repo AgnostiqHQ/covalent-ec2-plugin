@@ -14,14 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-provider "aws" {
-  profile = var.aws_profile
-  region  = var.aws_region
+provider "aws" {}
+
+data "aws_region" "current" {}
+
+resource "random_string" "default_prefix" {
+  length  = 9
+  upper   = false
+  special = false
 }
 
 locals {
-  username = "ubuntu"
+  prefix    = var.prefix == "" ? random_string.default_prefix.result : var.prefix
+  subnet_id = var.subnet_id == "" ? aws_default_subnet.default.id : var.subnet_id
+  region    = var.region == "" ? data.aws_region.current.name : var.region
+  username  = "ubuntu"
 }
+
 
 data "aws_ami" "ubuntu" {
   most_recent = true
@@ -53,7 +62,7 @@ resource "aws_instance" "covalent_ec2_instance" {
   }
 
   tags = {
-    "Name" = var.name
+    "Name" = "covalent-ec2-${local.prefix}"
   }
 }
 

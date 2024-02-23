@@ -19,10 +19,10 @@ module "vpc" {
 
   create_vpc = (var.vpc_id == "")
 
-  name = "${var.name}-vpc"
+  name = "covalent-${local.prefix}-vpc"
   cidr = var.vpc_cidr
 
-  azs = ["${var.aws_region}a"]
+  azs = ["${var.region}a"]
 
   public_subnets = [
     cidrsubnet(var.vpc_cidr, 0, 0)
@@ -40,7 +40,7 @@ data "http" "myip" {
 }
 
 resource "aws_security_group" "covalent_firewall" {
-  name        = "${var.name}-firewall"
+  name        = "covalent-${var.prefix}-firewall"
   description = "Allow traffic to Covalent server"
   vpc_id      = var.vpc_id == "" ? module.vpc.vpc_id : var.vpc_id
 

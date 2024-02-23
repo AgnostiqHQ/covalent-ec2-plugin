@@ -14,13 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-variable "name" {
-  default     = "covalent-executor-ec2"
+variable "prefix" {
+  default     = ""
   description = "Name used to prefix AWS resources"
 }
 
-variable "aws_region" {
-  default     = "us-east-1"
+variable "region" {
+  default     = ""
   description = "Region where resources for the EC2 plugin are deployed"
 }
 
