@@ -21,7 +21,7 @@ import copy
 import os
 import subprocess
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import boto3
 from covalent._shared_files import logger
@@ -65,6 +65,7 @@ class ExecutorPluginDefaults(BaseModel):
 
 
 class ExecutorInfraDefaults(BaseModel):
+    prefix: Optional[str] = ""
     profile: str = ""
     credentials_file: str = ""
     region: str = ""
@@ -270,7 +271,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         self.infra_vars = [
             f"-var=aws_region={region}",
             f"-var=aws_profile={profile}",
-            f"-var=name=covalent-ec2-task-{task_metadata['dispatch_id']}-{task_metadata['node_id']}",
+            f"-var=prefix=covalent-ec2-task-{task_metadata['dispatch_id']}-{task_metadata['node_id']}",
             f"-var=instance_type={self.instance_type}",
             f"-var=disk_size={self.volume_size}",
             f"-var=key_file={self.ssh_key_file}",
