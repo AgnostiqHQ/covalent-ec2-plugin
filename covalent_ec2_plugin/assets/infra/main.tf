@@ -2,30 +2,35 @@
 #
 # This file is part of Covalent.
 #
-# Licensed under the GNU Affero General Public License 3.0 (the "License").
-# A copy of the License may be obtained with this software package or at
+# Licensed under the Apache License 2.0 (the "License"). A copy of the
+# License may be obtained with this software package or at
 #
-#      https://www.gnu.org/licenses/agpl-3.0.en.html
+#     https://www.apache.org/licenses/LICENSE-2.0
 #
-# Use of this file is prohibited except in compliance with the License. Any
-# modifications or derivative works of this file must retain this copyright
-# notice, and modified files must contain a notice indicating that they have
-# been altered from the originals.
-#
-# Covalent is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE. See the License for more details.
-#
-# Relief from the License may be granted by purchasing a commercial license.
+# Use of this file is prohibited except in compliance with the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-provider "aws" {
-  profile = var.aws_profile
-  region  = var.aws_region
+provider "aws" {}
+
+data "aws_region" "current" {}
+
+resource "random_string" "default_prefix" {
+  length  = 9
+  upper   = false
+  special = false
 }
 
 locals {
-  username = "ubuntu"
+  prefix    = var.prefix == "" ? random_string.default_prefix.result : var.prefix
+  subnet_id = var.subnet_id == "" ? aws_default_subnet.default.id : var.subnet_id
+  region    = var.region == "" ? data.aws_region.current.name : var.region
+  username  = "ubuntu"
 }
+
 
 data "aws_ami" "ubuntu" {
   most_recent = true
@@ -48,8 +53,8 @@ resource "aws_instance" "covalent_ec2_instance" {
   subnet_id                   = var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id
   associate_public_ip_address = true
 
-  key_name             = var.key_name # Name of a valid key pair
-  monitoring           = true
+  key_name   = var.key_name # Name of a valid key pair
+  monitoring = true
 
   root_block_device {
     volume_type = "gp2"
@@ -57,7 +62,7 @@ resource "aws_instance" "covalent_ec2_instance" {
   }
 
   tags = {
-    "Name" = var.name
+    "Name" = "covalent-ec2-${local.prefix}"
   }
 }
 
@@ -82,7 +87,7 @@ resource "null_resource" "deps_install" {
       "echo 'Installing Covalent...'",
 
       # TODO: Update to a variable version
-      "pip install covalent==${var.covalent_version}",
+      "pip install \"covalent${var.covalent_version}\"",
       "chmod +x /tmp/script.sh",
       "sudo bash /tmp/script.sh",
       "echo ok"
@@ -95,4 +100,23 @@ resource "null_resource" "deps_install" {
     private_key = file(var.key_file) # Path to a valid key file
     host        = aws_instance.covalent_ec2_instance.public_ip
   }
+}
+
+data "template_file" "executor_config" {
+  template = file("${path.module}/ec2.conf.tftpl")
+
+  vars = {
+    credentials = var.aws_credentials
+    profile     = var.aws_profile
+    region      = var.aws_region
+    key_name    = var.key_name
+    volume_size = var.disk_size
+    vpc         = var.vpc_id == "" ? module.vpc.vpc_id : var.vpc_id
+    subnet      = var.vpc_id == "" ? module.vpc.public_subnets[0] : var.subnet_id
+  }
+}
+
+resource "local_file" "executor_config" {
+  content  = data.template_file.executor_config.rendered
+  filename = "${path.module}/ec2.conf"
 }

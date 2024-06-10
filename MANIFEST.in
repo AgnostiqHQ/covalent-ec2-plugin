@@ -1,3 +1,5 @@
 include VERSION
 include requirements.txt
-recursive-include covalent_ec2_plugin/infra/ *
+include covalent_ec2_plugin/assets/infra/*
+exclude covalent_ec2_plugin/assets/infra/*.swp
+include covalent_ec2_plugin/assets/infra/*.tf

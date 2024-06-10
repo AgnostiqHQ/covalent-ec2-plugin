@@ -2,21 +2,17 @@
 #
 # This file is part of Covalent.
 #
-# Licensed under the GNU Affero General Public License 3.0 (the "License").
-# A copy of the License may be obtained with this software package or at
+# Licensed under the Apache License 2.0 (the "License"). A copy of the
+# License may be obtained with this software package or at
 #
-#      https://www.gnu.org/licenses/agpl-3.0.en.html
+#     https://www.apache.org/licenses/LICENSE-2.0
 #
-# Use of this file is prohibited except in compliance with the License. Any
-# modifications or derivative works of this file must retain this copyright
-# notice, and modified files must contain a notice indicating that they have
-# been altered from the originals.
-#
-# Covalent is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE. See the License for more details.
-#
-# Relief from the License may be granted by purchasing a commercial license.
+# Use of this file is prohibited except in compliance with the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """EC2 executor plugin for the Covalent dispatcher."""
 
@@ -25,7 +21,7 @@ import copy
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, List, Tuple, Union
+from typing import Dict, List, Optional
 
 import boto3
 from covalent._shared_files import logger
@@ -33,6 +29,7 @@ from covalent._shared_files.config import get_config
 from covalent_aws_plugins import AWSExecutor
 from covalent_ssh_plugin.ssh import _EXECUTOR_PLUGIN_DEFAULTS as _SSH_EXECUTOR_PLUGIN_DEFAULTS
 from covalent_ssh_plugin.ssh import SSHExecutor
+from pydantic import BaseModel
 
 executor_plugin_name = "EC2Executor"
 
@@ -54,11 +51,34 @@ _EXECUTOR_PLUGIN_DEFAULTS.update(
     }
 )
 
+
+class ExecutorPluginDefaults(BaseModel):
+    profile: str = ""
+    credentials_file: str = ""
+    region: str = ""
+    instance_type: str = "t2.micro"
+    volume_size: str = "8"
+    vpc: str = ""
+    subnet: str = ""
+    key_name: str = ""
+    conda_env: str = "covalent"
+
+
+class ExecutorInfraDefaults(BaseModel):
+    prefix: Optional[str] = ""
+    profile: str = ""
+    credentials_file: str = ""
+    region: str = ""
+    instance_type: str = "t2.micro"
+    volume_size: str = "8"
+    vpc: str = ""
+    subnet: str = ""
+    key_name: str = ""
+    conda_env: str = "covalent"
+
+
 EC2_KEYPAIR_NAME = "covalent-ec2-executor-keypair"
 EC2_SSH_DIR = "~/.ssh/covalent"
-
-# TODO: Remove this once AWSExecutor has a `covalent_version` attribute
-TEMP_COVALENT_VERSION = "0.221.1rc0"
 
 
 class EC2Executor(SSHExecutor, AWSExecutor):
@@ -80,9 +100,11 @@ class EC2Executor(SSHExecutor, AWSExecutor):
             then the execution is run on the local machine.
         poll_freq: Number of seconds to wait for before retrying the result poll
         do_cleanup: Whether to delete all the intermediate files or not
+        covalent_version_to_install: Which version of covalent to be installed on the EC2 instance. Default: "==0.220.0.post2",
+            it can also include the extras if needed as "[qiskit, braket]==0.220.0.post2"
     """
 
-    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "infra"))
+    _TF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "infra"))
 
     def __init__(
         self,
@@ -104,6 +126,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         run_local_on_ssh_fail: bool = False,
         poll_freq: int = 15,
         do_cleanup: bool = True,
+        covalent_version_to_install: str = "",  # Current stable version
     ) -> None:
 
         username = username or get_config("executors.ec2.username")
@@ -146,7 +169,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
 
         # TODO: Remove this once AWSExecutor has a `covalent_version` attribute
         # Setting covalent version to be used in the EC2 instance
-        self.covalent_version = TEMP_COVALENT_VERSION
+        self.covalent_version = covalent_version_to_install
 
     async def _run_async_subprocess(self, cmd: List[str], cwd=None, log_output: bool = False):
 
@@ -180,7 +203,9 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         return proc, stdout, stderr
 
     def _get_tf_statefile_path(self, task_metadata: Dict) -> str:
-        state_file = f"{self.cache_dir}/ec2-{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
+        state_file = (
+            f"{self._TF_DIR}/ec2-{task_metadata['dispatch_id']}-{task_metadata['node_id']}.tfstate"
+        )
         return state_file
 
     async def _get_tf_output(self, var: str, state_file: str) -> str:
@@ -246,7 +271,7 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         self.infra_vars = [
             f"-var=aws_region={region}",
             f"-var=aws_profile={profile}",
-            f"-var=name=covalent-ec2-task-{task_metadata['dispatch_id']}-{task_metadata['node_id']}",
+            f"-var=prefix=covalent-ec2-task-{task_metadata['dispatch_id']}-{task_metadata['node_id']}",
             f"-var=instance_type={self.instance_type}",
             f"-var=disk_size={self.volume_size}",
             f"-var=key_file={self.ssh_key_file}",
@@ -281,7 +306,6 @@ class EC2Executor(SSHExecutor, AWSExecutor):
         """
         Invokes Terraform to terminate the instance and teardown supporting resources
         """
-
         state_file = self._get_tf_statefile_path(task_metadata)
 
         if not os.path.exists(state_file):

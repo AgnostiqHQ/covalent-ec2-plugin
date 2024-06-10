@@ -7,13 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+## Added
+
+- Generate random UUID for prefix variable to avoid name conflicting deployed resources
+
+## Changed
+
+- Moved the terraform files into **covalent_ec2_plugin/assets/infra** folder.
+- Minor modifications on the plugin core to handle the above folder changes.
+
+## Fixed
+
+- Fixed security group, enabling ec2 instances to connect to internet and download conda installation file.
+
+## Added
+
+- Added tftpl file to project configuration value
+
+## [0.13.2] - 2023-11-01
+
 ## Changed
 
 - Now instead of throwing an error when an ssh key doesn't exist, EC2Executor will create the key pair, link it to AWS, and then use it to connect to the instance
-
 - Updated covalent version to use a variable instead of a hard-coded value
-
 - Updates __init__ signature kwargs replaced with parent for better documentation.
+- Changed license to Apache
+- Updated AWS terraform provider version to ~> 5.17
+- Covalent version to be installed on the EC2 instance can now be specified by the user - including the ability to specify extras (e.g. `covalent[qiskit]`)
+
+### Fixed
+
+- Fixed the lookup of the tfstate file
+- Fixed networking due to the provider version update
+- Fixed the banner which was broken in README.md when viewed from the PyPi page
 
 ## [0.13.1] - 2023-02-09
 

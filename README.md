@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="https://github.com/AgnostiqHQ/covalent-ec2-plugin/blob/main/assets/ec2_readme_banner.jpg" width=150%>
+<img src="https://raw.githubusercontent.com/AgnostiqHQ/covalent-ec2-plugin/main/assets/ec2_readme_banner.jpg" width=150%>
 
 </div>
 
@@ -135,4 +135,4 @@ Please use the following citation in any publications:
 
 ## License
 
-Covalent is licensed under the GNU Affero GPL 3.0 License. Covalent may be distributed under other licenses upon request. See the [LICENSE](https://github.com/AgnostiqHQ/covalent-executor-template/blob/main/LICENSE) file or contact the [support team](mailto:support@agnostiq.ai) for more details.
+Covalent is licensed under the Apache License 2.0. See the [LICENSE](https://github.com/AgnostiqHQ/covalent-executor-template/blob/main/LICENSE) file or contact the [support team](mailto:support@agnostiq.ai) for more details.
